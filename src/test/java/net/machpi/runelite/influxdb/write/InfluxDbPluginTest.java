@@ -1,13 +1,14 @@
-package com.example;
+package net.machpi.runelite.influxdb.write;
 
+import net.machpi.runelite.influxdb.InfluxDbPlugin;
 import net.runelite.client.RuneLite;
 import net.runelite.client.externalplugins.ExternalPluginManager;
 
-public class ExamplePluginTest
+public class InfluxDbPluginTest
 {
 	public static void main(String[] args) throws Exception
 	{
-		ExternalPluginManager.loadBuiltin(ExamplePlugin.class);
+		ExternalPluginManager.loadBuiltin(InfluxDbPlugin.class);
 		RuneLite.main(args);
 	}
 }
