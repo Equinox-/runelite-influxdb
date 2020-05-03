@@ -62,7 +62,7 @@ public interface InfluxDbConfig extends Config {
             name = "Submit Player Location",
             description = "Submit player location"
     )
-    default boolean writeSelfLoc() { return true; }
+    default boolean writeSelfLoc() { return false; }
 
     @ConfigItem(
             keyName = "writeSelfMeta",
