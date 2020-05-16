@@ -6,8 +6,6 @@ import net.runelite.client.config.ConfigItem;
 import net.runelite.client.config.Range;
 import net.runelite.client.config.Units;
 
-import java.time.Duration;
-
 @ConfigGroup("influxdb")
 public interface InfluxDbConfig extends Config {
 
@@ -26,7 +24,7 @@ public interface InfluxDbConfig extends Config {
     String getDatabase();
 
     @ConfigItem(
-            keyName =  "serverUsername",
+            keyName = "serverUsername",
             name = "Server Username",
             description = "Username to use for authentiation"
     )
@@ -35,7 +33,7 @@ public interface InfluxDbConfig extends Config {
     }
 
     @ConfigItem(
-            keyName =  "serverPassword",
+            keyName = "serverPassword",
             name = "Server Password",
             description = "Password to use for authentiation"
     )
@@ -48,28 +46,45 @@ public interface InfluxDbConfig extends Config {
             name = "Submit Experience",
             description = "Submit experience amount"
     )
-    default boolean writeXp() { return true; }
+    default boolean writeXp() {
+        return true;
+    }
 
     @ConfigItem(
             keyName = "writeBankValue",
             name = "Submit Bank Value",
             description = "Submit bank and seed vault items"
     )
-    default boolean writeBankValue() { return true; }
+    default boolean writeBankValue() {
+        return true;
+    }
 
     @ConfigItem(
             keyName = "writeSelfLoc",
             name = "Submit Player Location",
             description = "Submit player location"
     )
-    default boolean writeSelfLoc() { return false; }
+    default boolean writeSelfLoc() {
+        return false;
+    }
 
     @ConfigItem(
             keyName = "writeSelfMeta",
             name = "Submit Player Metadata",
             description = "Submit player combat level, quest points, and other minor stats"
     )
-    default boolean writeSelfMeta() { return true; }
+    default boolean writeSelfMeta() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "writeKillCount",
+            name = "Submit Kill Count",
+            description = "Submits boss kill counts (requires Chat Commands plugin)"
+    )
+    default boolean writeKillCount() {
+        return true;
+    }
 
     @ConfigItem(
             keyName = "writeInterval",

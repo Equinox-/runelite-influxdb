@@ -15,6 +15,7 @@ import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.api.events.StatChanged;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.task.Schedule;
@@ -103,9 +104,31 @@ public class InfluxDbPlugin extends Plugin {
     @Subscribe
     public void onGameTick(GameTick tick) {
         if (config.writeSelfLoc())
-        writer.submit(measurer.createSelfLocMeasurement());
+            writer.submit(measurer.createSelfLocMeasurement());
         if (config.writeSelfMeta())
             writer.submit(measurer.createSelfMeasurement());
+    }
+
+    @Subscribe
+    public void onConfigChanged(ConfigChanged changed) {
+        if (!config.writeKillCount())
+            return;
+        // Piggyback on the chat commands plugin to record kill count to avoid
+        // duplicating the complex logic to keep up to date on kill counts
+        if (!changed.getGroup().startsWith("killcount.") || changed.getNewValue() == null)
+            return;
+        if (!changed.getGroup().equals("killcount." + client.getUsername().toLowerCase()))
+            return;
+        try {
+            String boss = changed.getKey();
+            int kc = Integer.parseInt(changed.getNewValue());
+            writer.submit(measurer.createKillCountMeasurement(boss, kc));
+        } catch (NumberFormatException ex) {
+            log.debug("Failed to parse KC for boss {} value {}",
+                    changed.getKey(),
+                    changed.getNewValue(),
+                    ex);
+        }
     }
 
     @Schedule(period = 15, unit = ChronoUnit.SECONDS, asynchronous = true)
@@ -131,14 +154,12 @@ public class InfluxDbPlugin extends Plugin {
     }
 
     @Override
-    protected void startUp()
-    {
+    protected void startUp() {
         scheduleFlush();
     }
 
     @Override
-    protected void shutDown()
-    {
+    protected void shutDown() {
         unscheduleFlush();
     }
 }

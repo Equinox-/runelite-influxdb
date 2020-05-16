@@ -17,6 +17,10 @@ import net.runelite.api.Skill;
 import net.runelite.api.VarPlayer;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.game.ItemManager;
+import net.runelite.http.api.hiscore.HiscoreEndpoint;
+import net.runelite.http.api.hiscore.HiscoreResult;
+import net.runelite.http.api.hiscore.HiscoreSkill;
+import net.runelite.http.api.hiscore.HiscoreSkillType;
 
 import java.util.Arrays;
 import java.util.Set;
@@ -26,6 +30,7 @@ public class MeasurementCreator {
     public static final String SERIES_INVENTORY = "rs_inventory";
     public static final String SERIES_SKILL = "rs_skill";
     public static final String SERIES_SELF = "rs_self";
+    public static final String SERIES_KILL_COUNT = "rs_killcount";
     public static final String SERIES_SELF_LOC = "rs_self_loc";
     public static final String SELF_KEY_X = "locX";
     public static final String SELF_KEY_Y = "locY";
@@ -165,6 +170,18 @@ public class MeasurementCreator {
                 .numericValue("skulled", local.getSkullIcon() != null ? 1 : 0)
                 .stringValue("name", MoreObjects.firstNonNull(local.getName(), "none"))
                 .stringValue("overhead", local.getOverheadIcon() != null ? local.getOverheadIcon().name() : "NONE")
+                .build();
+    }
+
+    public Series createKillCountSeries(String boss) {
+        return createSeries().measurement(SERIES_KILL_COUNT)
+                .tag("boss", boss).build();
+    }
+
+    public Measurement createKillCountMeasurement(String boss, int value) {
+        return Measurement.builder()
+                .series(createKillCountSeries(boss))
+                .numericValue("kc", value)
                 .build();
     }
 
