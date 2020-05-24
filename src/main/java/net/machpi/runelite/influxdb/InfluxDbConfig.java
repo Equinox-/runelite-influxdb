@@ -6,8 +6,10 @@ import net.runelite.client.config.ConfigItem;
 import net.runelite.client.config.Range;
 import net.runelite.client.config.Units;
 
-@ConfigGroup("influxdb")
+@ConfigGroup(InfluxDbConfig.GROUP)
 public interface InfluxDbConfig extends Config {
+    String GROUP = "influxdb";
+    String WRITE_INTERVAL = "writeInterval";
 
     @ConfigItem(
             keyName = "serverUrl",
@@ -39,6 +41,15 @@ public interface InfluxDbConfig extends Config {
     )
     default String getServerPassword() {
         return "";
+    }
+
+    @ConfigItem(
+            keyName = "serverRetentionPolicy",
+            name = "Server Retention Policy",
+            description = "Retention policy to use for storing data"
+    )
+    default String getServerRetentionPolicy() {
+        return "autogen";
     }
 
     @ConfigItem(
@@ -87,7 +98,7 @@ public interface InfluxDbConfig extends Config {
     }
 
     @ConfigItem(
-            keyName = "writeInterval",
+            keyName = WRITE_INTERVAL,
             name = "Recording interval",
             description = "Minimum interval between measurements"
     )
