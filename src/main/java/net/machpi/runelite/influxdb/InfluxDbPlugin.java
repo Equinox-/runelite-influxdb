@@ -39,6 +39,9 @@ public class InfluxDbPlugin extends Plugin {
     }
 
     @Inject
+    private ConfigManager configManager;
+
+    @Inject
     private InfluxWriter writer;
 
     @Inject
@@ -67,9 +70,22 @@ public class InfluxDbPlugin extends Plugin {
 
     @Subscribe
     public void onGameStateChanged(GameStateChanged event) {
-        if (event.getGameState() == GameState.LOGGED_IN && config.writeXp()) {
+        if (event.getGameState() != GameState.LOGGED_IN)
+            return;
+        measureInitialState();
+    }
+
+    private void measureInitialState() {
+        if (config.writeXp()) {
             for (Skill s : Skill.values()) {
                 writer.submit(measurer.createXpMeasurement(s));
+            }
+        }
+        if (config.writeKillCount()) {
+            String group = MeasurementCreator.KILL_COUNT_CFG_PREFIX + client.getUsername().toLowerCase() + ".";
+            for (String groupAndKey : configManager.getConfigurationKeys(group)) {
+                String boss = groupAndKey.substring(group.length());
+                measurer.createKillCountMeasurement(boss).ifPresent(writer::submit);
             }
         }
     }
@@ -115,24 +131,19 @@ public class InfluxDbPlugin extends Plugin {
                 scheduleFlush();
             }
         }
-        if (!config.writeKillCount())
-            return;
+        observeKillCountConfig(changed.getGroup(), changed.getKey(), changed.getNewValue());
+    }
+
+    private void observeKillCountConfig(String group, String key, String value) {
         // Piggyback on the chat commands plugin to record kill count to avoid
         // duplicating the complex logic to keep up to date on kill counts
-        if (!changed.getGroup().startsWith("killcount.") || changed.getNewValue() == null)
+        if (!config.writeKillCount())
             return;
-        if (!changed.getGroup().equals("killcount." + client.getUsername().toLowerCase()))
+        String user = client.getUsername().toLowerCase();
+        if (!group.equals(MeasurementCreator.KILL_COUNT_CFG_PREFIX + user)
+                && !group.equals(MeasurementCreator.PERSONAL_BEST_CFG_PREFIX + user))
             return;
-        try {
-            String boss = changed.getKey();
-            int kc = Integer.parseInt(changed.getNewValue());
-            writer.submit(measurer.createKillCountMeasurement(boss, kc));
-        } catch (NumberFormatException ex) {
-            log.debug("Failed to parse KC for boss {} value {}",
-                    changed.getKey(),
-                    changed.getNewValue(),
-                    ex);
-        }
+        measurer.createKillCountMeasurement(key).ifPresent(writer::submit);
     }
 
     private int failures = 0;
@@ -166,6 +177,9 @@ public class InfluxDbPlugin extends Plugin {
     @Override
     protected void startUp() {
         scheduleFlush();
+        if (client.getGameState() == GameState.LOGGED_IN) {
+            measureInitialState();
+        }
     }
 
     @Override
