@@ -2,25 +2,36 @@ package net.machpi.runelite.influxdb;
 
 import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
+import net.machpi.runelite.influxdb.activity.ActivityState;
+import net.machpi.runelite.influxdb.activity.GameEvent;
 import net.machpi.runelite.influxdb.write.InfluxWriter;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.InventoryID;
 import net.runelite.api.Item;
 import net.runelite.api.ItemContainer;
+import net.runelite.api.Player;
 import net.runelite.api.Skill;
+import net.runelite.api.WorldType;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.api.events.StatChanged;
+import net.runelite.api.events.VarbitChanged;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.task.Schedule;
 import net.runelite.client.util.ExecutorServiceExceptionLogger;
 
 import javax.inject.Inject;
+import java.time.temporal.ChronoUnit;
+import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -29,7 +40,7 @@ import java.util.concurrent.TimeUnit;
 @PluginDescriptor(
         name = "InfluxDB",
         description = "Saves statistics to InfluxDB",
-        tags = {"experience", "levels", "stats"}
+        tags = {"experience", "levels", "stats", "activity", "tracker"}
 )
 @Slf4j
 public class InfluxDbPlugin extends Plugin {
@@ -60,23 +71,57 @@ public class InfluxDbPlugin extends Plugin {
      */
     private final ScheduledExecutorService executor = new ExecutorServiceExceptionLogger(Executors.newSingleThreadScheduledExecutor());
 
+    private ActivityState activityState;
+    private boolean loginFlag;
+    private Map<Skill, Integer> skillExp = new HashMap<>();
+
     @Subscribe
     public void onStatChanged(StatChanged statChanged) {
-        if (!config.writeXp()) {
+        // stat change is kicked off when logged in. only update the state when
+        // xp has been gained
+        final int exp = statChanged.getXp();
+        final Integer previous = skillExp.put(statChanged.getSkill(), exp);
+        if (previous == null || previous >= exp) {
             return;
         }
 
-        writer.submit(measurer.createXpMeasurement(statChanged.getSkill()));
-        if (statChanged.getSkill() != Skill.OVERALL) {
-            writer.submit(measurer.createXpMeasurement(Skill.OVERALL));
+        if (config.writeXp()) {
+            writer.submit(measurer.createXpMeasurement(statChanged.getSkill()));
+            if (statChanged.getSkill() != Skill.OVERALL) {
+                writer.submit(measurer.createXpMeasurement(Skill.OVERALL));
+            }
+        }
+
+        if (config.writeActivity()) {
+            final GameEvent gameEvent = GameEvent.fromSkill(statChanged.getSkill());
+            if (gameEvent != null) {
+                activityState.triggerEvent(gameEvent);
+            }
         }
     }
 
     @Subscribe
     public void onGameStateChanged(GameStateChanged event) {
-        if (event.getGameState() != GameState.LOGGED_IN)
-            return;
-        measureInitialState();
+        switch (event.getGameState()) {
+            case LOGIN_SCREEN:
+                checkForGameStateUpdate();
+                return;
+            case LOGGING_IN:
+                loginFlag = true;
+                break;
+            case LOGGED_IN:
+                // check the loginFlag to know if the previous state was LOGGING_IN.
+                // it is possible to go from a LOADING to LOGGED_IN state when loading
+                // region chunks.
+                if (loginFlag) {
+                    loginFlag = false;
+                    measureInitialState();
+                    checkForGameStateUpdate();
+                }
+                break;
+        }
+
+        checkForAreaUpdate();
     }
 
     private void measureInitialState() {
@@ -151,6 +196,7 @@ public class InfluxDbPlugin extends Plugin {
 
     private int failures = 0;
     private int failureBackoff = 0;
+
     public void flush() {
         if (failureBackoff > 0) {
             failureBackoff--;
@@ -178,16 +224,75 @@ public class InfluxDbPlugin extends Plugin {
         }
     }
 
+    @Subscribe
+    public void onVarbitChanged(VarbitChanged event) {
+        final GameEvent gameEvent = GameEvent.fromVarbit(client);
+        if (gameEvent != null) {
+            activityState.triggerEvent(gameEvent);
+        }
+    }
+
+    private void checkForAreaUpdate() {
+        if (client.getLocalPlayer() == null) {
+            return;
+        }
+
+        Player localPlayer = client.getLocalPlayer();
+        final int regionId = WorldPoint.fromLocalInstance(client, localPlayer.getLocalLocation()).getRegionID();
+        if (regionId == 0) {
+            return;
+        }
+
+        final EnumSet<WorldType> worldType = client.getWorldType();
+        GameEvent gameEvent = GameEvent.fromRegion(regionId);
+
+        if (worldType.contains(WorldType.DEADMAN)) {
+            gameEvent = GameEvent.PLAYING_DEADMAN;
+        } else if (WorldType.isPvpWorld(worldType)) {
+            gameEvent = GameEvent.PLAYING_PVP;
+        } else if (GameEvent.MG_NIGHTMARE_ZONE == gameEvent && localPlayer.getWorldLocation().getPlane() == 0) {
+            // NMZ uses the same region ID as KBD. KBD is always on plane 0 and NMZ is always above plane 0
+            gameEvent = GameEvent.BOSS_KING_BLACK_DRAGON;
+        } else if (gameEvent == null) {
+            gameEvent = GameEvent.IN_GAME;
+        }
+
+        activityState.triggerEvent(gameEvent);
+    }
+
+    private void checkForGameStateUpdate() {
+        // Game state update does also full reset of state
+        activityState.reset();
+        activityState.triggerEvent(client.getGameState() == GameState.LOGGED_IN
+                ? GameEvent.IN_GAME
+                : GameEvent.IN_MENU);
+    }
+
+    /**
+     * send an activity heartbeat once every 30 seconds
+     */
+    @Schedule(period = 30, unit = ChronoUnit.SECONDS)
+    public void updateActivity() {
+        activityState.checkForTimeout();
+        activityState.write();
+    }
+
     @Override
     protected void startUp() {
         rescheduleFlush();
+        activityState = new ActivityState(config, writer, measurer);
+
         if (client.getGameState() == GameState.LOGGED_IN) {
             measureInitialState();
         }
+
+        checkForGameStateUpdate();
+        checkForAreaUpdate();
     }
 
     @Override
     protected void shutDown() {
+        flush();
         unscheduleFlush();
     }
 }

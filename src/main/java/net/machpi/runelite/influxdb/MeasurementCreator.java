@@ -1,8 +1,10 @@
 package net.machpi.runelite.influxdb;
 
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import net.machpi.runelite.influxdb.activity.ActivityState;
 import net.machpi.runelite.influxdb.write.Measurement;
 import net.machpi.runelite.influxdb.write.Series;
 import net.runelite.api.Client;
@@ -19,6 +21,7 @@ import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.game.ItemManager;
 
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.Set;
@@ -30,6 +33,7 @@ public class MeasurementCreator {
     public static final String SERIES_SELF = "rs_self";
     public static final String SERIES_KILL_COUNT = "rs_killcount";
     public static final String SERIES_SELF_LOC = "rs_self_loc";
+    public static final String SERIES_ACTIVITY = "rs_activity";
     public static final String SELF_KEY_X = "locX";
     public static final String SELF_KEY_Y = "locY";
     public static final Set<String> SELF_POS_KEYS = ImmutableSet.of(SELF_KEY_X, SELF_KEY_Y);
@@ -207,4 +211,31 @@ public class MeasurementCreator {
     }
 
     private static final int THRESHOLD = 50_000;
+
+    public Optional<Series> createActivitySeries(ActivityState.State lastState) {
+        Series.SeriesBuilder seriesB = createSeries().measurement(SERIES_ACTIVITY);
+        if (!Strings.isNullOrEmpty(lastState.getSkill())) {
+            seriesB = seriesB.tag("skill", lastState.getSkill());
+        }
+        if (!Strings.isNullOrEmpty(lastState.getLocationType())) {
+            seriesB = seriesB.tag("type", lastState.getLocationType());
+        }
+        if (!Strings.isNullOrEmpty(lastState.getLocation())) {
+            seriesB = seriesB.tag("location", lastState.getLocation());
+        }
+
+        Series series = seriesB.build();
+        if (Strings.isNullOrEmpty(series.getTags().getOrDefault("user", null)))
+            return Optional.empty();
+
+        return Optional.of(series);
+    }
+
+    public Optional<Measurement> createActivityMeasurement(ActivityState.State lastState) {
+        Optional<Series> series = createActivitySeries(lastState);
+        return series.map(value -> Measurement.builder()
+                .series(value)
+                .numericValue("t", Instant.now().getEpochSecond())
+                .build());
+    }
 }
