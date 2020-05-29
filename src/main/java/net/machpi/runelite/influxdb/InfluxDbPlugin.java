@@ -18,8 +18,10 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.util.ExecutorServiceExceptionLogger;
 
 import javax.inject.Inject;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -53,8 +55,10 @@ public class InfluxDbPlugin extends Plugin {
     @Inject
     private MeasurementCreator measurer;
 
-    @Inject
-    private ScheduledExecutorService executor;
+    /**
+     * Don't use a shared executor because we don't want to block any game threads.
+     */
+    private final ScheduledExecutorService executor = new ExecutorServiceExceptionLogger(Executors.newSingleThreadScheduledExecutor());
 
     @Subscribe
     public void onStatChanged(StatChanged statChanged) {
@@ -127,8 +131,7 @@ public class InfluxDbPlugin extends Plugin {
         if (InfluxDbConfig.GROUP.equals(changed.getGroup())) {
             failureBackoff = 0;
             if (InfluxDbConfig.WRITE_INTERVAL.equals(changed.getKey())) {
-                unscheduleFlush();
-                scheduleFlush();
+                rescheduleFlush();
             }
         }
         observeKillCountConfig(changed.getGroup(), changed.getKey(), changed.getNewValue());
@@ -163,7 +166,8 @@ public class InfluxDbPlugin extends Plugin {
         }
     }
 
-    private synchronized void scheduleFlush() {
+    private synchronized void rescheduleFlush() {
+        unscheduleFlush();
         this.flushTask = executor.scheduleWithFixedDelay(this::flush, config.writeIntervalSeconds(), config.writeIntervalSeconds(), TimeUnit.SECONDS);
     }
 
@@ -176,7 +180,7 @@ public class InfluxDbPlugin extends Plugin {
 
     @Override
     protected void startUp() {
-        scheduleFlush();
+        rescheduleFlush();
         if (client.getGameState() == GameState.LOGGED_IN) {
             measureInitialState();
         }

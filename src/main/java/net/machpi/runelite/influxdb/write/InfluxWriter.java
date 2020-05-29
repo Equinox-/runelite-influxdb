@@ -8,13 +8,14 @@ import net.machpi.runelite.influxdb.MeasurementCreator;
 import org.apache.commons.lang3.StringUtils;
 import org.influxdb.InfluxDB;
 import org.influxdb.InfluxDBFactory;
+import org.influxdb.dto.BatchPoints;
 
 import javax.inject.Inject;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
 public class InfluxWriter {
@@ -64,7 +65,6 @@ public class InfluxWriter {
                 } else {
                     cachedServer = InfluxDBFactory.connect(serverUrl, serverUser, serverPass);
                 }
-                cachedServer.enableBatch(1000, 1, TimeUnit.SECONDS);
             }
             serverUrl = newServerUrl;
             serverUser = newServerUser;
@@ -83,7 +83,18 @@ public class InfluxWriter {
     }
 
     public void flush() {
-        writers.forEach((k, v) -> v.flush());
+        BatchPoints.Builder batch = BatchPoints.database(config.getDatabase())
+                .retentionPolicy(config.getServerRetentionPolicy())
+                .consistency(InfluxDB.ConsistencyLevel.ONE);
+        writers.forEach((k, v) -> v.flush(batch));
+
+        getInflux().ifPresent(influxDB -> {
+            BatchPoints built = batch.build();
+            if (!built.getPoints().isEmpty()) {
+                influxDB.write(built);
+                log.debug("Writing {}", built.lineProtocol());
+            }
+        });
     }
 
     private static class Writer {
@@ -109,8 +120,8 @@ public class InfluxWriter {
             terminal.submit(m);
         }
 
-        synchronized void flush() {
-            terminal.flush();
+        synchronized void flush(BatchPoints.Builder output) {
+            terminal.flush(output);
         }
     }
 
@@ -121,41 +132,34 @@ public class InfluxWriter {
 
         void submit(Measurement m);
 
-        void flush();
+        void flush(BatchPoints.Builder output);
     }
 
     private interface FilterOp {
         boolean shouldWrite(Measurement lastWritten, Measurement measurement);
     }
 
-    private class ThrottledWriter implements TerminalOp {
+    private static class ThrottledWriter implements TerminalOp {
         @Getter
         private volatile Measurement lastWritten;
-        private volatile Measurement waitingForWrite;
+        private final AtomicReference<Measurement> waitingForWrite = new AtomicReference<>();
 
         @Override
         public boolean isBlocked() {
-            return waitingForWrite != null;
+            return waitingForWrite.get() != null;
         }
 
         @Override
         public void submit(Measurement m) {
-            waitingForWrite = m;
+            waitingForWrite.set(m);
         }
 
         @Override
-        public void flush() {
-            Measurement flush = waitingForWrite;
-            waitingForWrite = null;
+        public void flush(BatchPoints.Builder output) {
+            Measurement flush = waitingForWrite.getAndSet(null);
             lastWritten = flush;
-
-            if (flush == null) return;
-
-            getInflux().ifPresent(influxDB -> {
-                String pt = flush.toInflux().lineProtocol();
-                log.debug("Writing {}", pt);
-                influxDB.write(config.getDatabase(), config.getServerRetentionPolicy(), InfluxDB.ConsistencyLevel.ONE, pt);
-            });
+            if (flush != null)
+                output.point(flush.toInflux());
         }
     }
 
