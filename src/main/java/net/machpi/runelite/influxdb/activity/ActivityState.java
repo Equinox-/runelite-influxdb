@@ -11,9 +11,9 @@ import net.machpi.runelite.influxdb.write.Measurement;
 import javax.inject.Inject;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.EnumMap;
 import java.util.Optional;
+import java.util.TreeSet;
 
 @Slf4j
 public class ActivityState {
@@ -32,16 +32,24 @@ public class ActivityState {
         private final String locationType;
     }
 
-    private final List<EventWithTime> events = new ArrayList<>();
     private final InfluxDbConfig config;
     private final MeasurementCreator measurer;
     private final InfluxWriter writer;
+
+    private final EnumMap<GameEvent, EventWithTime> latestEvents = new EnumMap<>(GameEvent.class);
+    private final TreeSet<EventWithTime> events;
+
 
     @Inject
     public ActivityState(final InfluxDbConfig config, final InfluxWriter writer, final MeasurementCreator measurer) {
         this.config = config;
         this.writer = writer;
         this.measurer = measurer;
+        this.events = new TreeSet<>((a, b) -> ComparisonChain.start()
+                .compare(b.getType().getPriority(), a.getType().getPriority())
+                .compare(b.getUpdated(), a.getUpdated())
+                .result()
+        );
     }
 
     /**
@@ -49,6 +57,7 @@ public class ActivityState {
      */
     public void reset() {
         events.clear();
+        latestEvents.clear();
     }
 
     /**
@@ -59,34 +68,28 @@ public class ActivityState {
     public void triggerEvent(final GameEvent eventType) {
         if (!config.writeActivity()) return;
 
-        final Optional<EventWithTime> foundEvent = events.stream().filter(e -> e.type == eventType).findFirst();
-        EventWithTime event;
-
-        if (foundEvent.isPresent()) {
-            event = foundEvent.get();
-        } else {
-            event = new EventWithTime(eventType, Instant.now());
-            events.add(event);
-        }
-
+        EventWithTime event = latestEvents.computeIfAbsent(eventType, et -> {
+            EventWithTime ewt = new EventWithTime(et, Instant.now());
+            events.add(ewt);
+            return ewt;
+        });
         event.setUpdated(Instant.now());
 
         if (event.getType().isShouldClear()) {
-            events.removeIf(e -> e.getType() != eventType && e.getType().isShouldClear());
+            events.removeIf(e -> {
+                boolean remove = e.getType() != eventType && e.getType().isShouldClear();
+                if (remove) latestEvents.remove(e.getType());
+                return remove;
+            });
         }
-
-        events.sort((a, b) -> ComparisonChain.start()
-                .compare(b.getType().getPriority(), a.getType().getPriority())
-                .compare(b.getUpdated(), a.getUpdated())
-                .result());
     }
 
-    public State getState(){
+    public State getState() {
         if (events.size() == 0 || !config.writeActivity()) return null;
 
         final Duration activityTimeout = Duration.ofMinutes(config.activityTimeout());
         final Instant now = Instant.now();
-        final EventWithTime eventWithTime = events.get(0);
+        final EventWithTime eventWithTime = events.first();
 
         // if we've been in the menu for more than the timeout, stop sending updates.
         if (GameEvent.IN_MENU.getLocation().equals(eventWithTime.getType().getLocation()) && now.isAfter(eventWithTime.getStart().plus(activityTimeout))) {
@@ -131,7 +134,11 @@ public class ActivityState {
         final Duration activityTimeout = Duration.ofMinutes(config.activityTimeout());
         final Instant now = Instant.now();
 
-        events.removeIf(event -> event.getType().isShouldTimeout() && now.isAfter(event.getUpdated().plus(activityTimeout)));
+        events.removeIf(event -> {
+            boolean remove = event.getType().isShouldTimeout() && now.isAfter(event.getUpdated().plus(activityTimeout));
+            if (remove) latestEvents.remove(event.getType());
+            return remove;
+        });
     }
 
     public void write() {
