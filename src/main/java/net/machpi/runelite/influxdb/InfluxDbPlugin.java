@@ -75,15 +75,12 @@ public class InfluxDbPlugin extends Plugin {
     private final ScheduledExecutorService executor = new ExecutorServiceExceptionLogger(Executors.newSingleThreadScheduledExecutor());
 
     private boolean loginFlag;
-    private final Map<Skill, Integer> skillExp = new HashMap<>();
+    private int loggedInTick = Integer.MAX_VALUE;
 
     @Subscribe
     public void onStatChanged(StatChanged statChanged) {
-        // stat change is kicked off when logged in. only update the state when
-        // xp has been gained
-        final int exp = statChanged.getXp();
-        final Integer previous = skillExp.put(statChanged.getSkill(), exp);
-        if (previous == null || previous >= exp) {
+        // stat change is kicked off when logged in. only update stats when init'ing stats has finished
+        if (loggedInTick >= client.getTickCount()) {
             return;
         }
 
@@ -117,6 +114,7 @@ public class InfluxDbPlugin extends Plugin {
                 // region chunks.
                 if (loginFlag) {
                     loginFlag = false;
+                    loggedInTick = client.getTickCount();
                     measureInitialState();
                     checkForGameStateUpdate();
                 }
