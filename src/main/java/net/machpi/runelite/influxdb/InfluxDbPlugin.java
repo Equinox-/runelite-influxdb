@@ -66,14 +66,16 @@ public class InfluxDbPlugin extends Plugin {
     @Inject
     private MeasurementCreator measurer;
 
+    @Inject
+    private ActivityState activityState;
+
     /**
      * Don't use a shared executor because we don't want to block any game threads.
      */
     private final ScheduledExecutorService executor = new ExecutorServiceExceptionLogger(Executors.newSingleThreadScheduledExecutor());
 
-    private ActivityState activityState;
     private boolean loginFlag;
-    private Map<Skill, Integer> skillExp = new HashMap<>();
+    private final Map<Skill, Integer> skillExp = new HashMap<>();
 
     @Subscribe
     public void onStatChanged(StatChanged statChanged) {
@@ -280,8 +282,6 @@ public class InfluxDbPlugin extends Plugin {
     @Override
     protected void startUp() {
         rescheduleFlush();
-        activityState = new ActivityState(config, writer, measurer);
-
         if (client.getGameState() == GameState.LOGGED_IN) {
             measureInitialState();
         }
@@ -292,6 +292,7 @@ public class InfluxDbPlugin extends Plugin {
 
     @Override
     protected void shutDown() {
+        updateActivity(); // get the final activity before shutting down
         flush();
         unscheduleFlush();
     }

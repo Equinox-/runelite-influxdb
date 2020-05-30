@@ -11,6 +11,8 @@ import org.influxdb.InfluxDBFactory;
 import org.influxdb.dto.BatchPoints;
 
 import javax.inject.Inject;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -77,6 +79,8 @@ public class InfluxWriter {
         return writers.computeIfAbsent(s, series -> {
             if (series.getMeasurement().equals(MeasurementCreator.SERIES_SELF_LOC)) {
                 return new Writer(new ThrottledWriter(), SELF_DEDUPE);
+            } else if (series.getMeasurement().equals(MeasurementCreator.SERIES_ACTIVITY)) {
+                return new Writer(new ThrottledWriter(), ACTIVITY_DEDUPE);
             }
             return new Writer(new ThrottledWriter(), FULL_DEDUPE);
         });
@@ -165,6 +169,10 @@ public class InfluxWriter {
 
     private static final FilterOp FULL_DEDUPE = (prev, b) -> prev == null || !prev.getNumericValues().equals(b.getNumericValues())
             || !prev.getStringValues().equals(b.getStringValues());
+
+    private static final FilterOp ACTIVITY_DEDUPE = (prev, b) -> prev == null
+            || !prev.equals(b)
+            || Instant.ofEpochMilli(prev.getTime()).plus(5, ChronoUnit.MINUTES).isAfter(Instant.now());
 
     private static final FilterOp SELF_DEDUPE = (prev, curr) -> {
         if (prev == null)

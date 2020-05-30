@@ -213,21 +213,9 @@ public class MeasurementCreator {
     private static final int THRESHOLD = 50_000;
 
     public Optional<Series> createActivitySeries(ActivityState.State lastState) {
-        Series.SeriesBuilder seriesB = createSeries().measurement(SERIES_ACTIVITY);
-        if (!Strings.isNullOrEmpty(lastState.getSkill())) {
-            seriesB = seriesB.tag("skill", lastState.getSkill());
-        }
-        if (!Strings.isNullOrEmpty(lastState.getLocationType())) {
-            seriesB = seriesB.tag("type", lastState.getLocationType());
-        }
-        if (!Strings.isNullOrEmpty(lastState.getLocation())) {
-            seriesB = seriesB.tag("location", lastState.getLocation());
-        }
-
-        Series series = seriesB.build();
+        Series series = createSeries().measurement(SERIES_ACTIVITY).build();
         if (Strings.isNullOrEmpty(series.getTags().getOrDefault("user", null)))
             return Optional.empty();
-
         return Optional.of(series);
     }
 
@@ -235,7 +223,9 @@ public class MeasurementCreator {
         Optional<Series> series = createActivitySeries(lastState);
         return series.map(value -> Measurement.builder()
                 .series(value)
-                .numericValue("t", Instant.now().getEpochSecond())
+                .stringValue("skill", lastState.getSkill())
+                .stringValue("type", lastState.getLocationType())
+                .stringValue("location", lastState.getLocation())
                 .build());
     }
 }

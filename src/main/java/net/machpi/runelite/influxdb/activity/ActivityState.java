@@ -8,12 +8,11 @@ import net.machpi.runelite.influxdb.MeasurementCreator;
 import net.machpi.runelite.influxdb.write.InfluxWriter;
 import net.machpi.runelite.influxdb.write.Measurement;
 
+import javax.inject.Inject;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 @Slf4j
@@ -38,6 +37,7 @@ public class ActivityState {
     private final MeasurementCreator measurer;
     private final InfluxWriter writer;
 
+    @Inject
     public ActivityState(final InfluxDbConfig config, final InfluxWriter writer, final MeasurementCreator measurer) {
         this.config = config;
         this.writer = writer;
