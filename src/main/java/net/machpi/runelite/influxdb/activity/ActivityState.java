@@ -11,7 +11,9 @@ import net.machpi.runelite.influxdb.write.Measurement;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Slf4j
@@ -35,7 +37,6 @@ public class ActivityState {
     private final InfluxDbConfig config;
     private final MeasurementCreator measurer;
     private final InfluxWriter writer;
-    private State lastState;
 
     public ActivityState(final InfluxDbConfig config, final InfluxWriter writer, final MeasurementCreator measurer) {
         this.config = config;
@@ -48,7 +49,6 @@ public class ActivityState {
      */
     public void reset() {
         events.clear();
-        lastState = null;
     }
 
     /**
@@ -79,6 +79,19 @@ public class ActivityState {
                 .compare(b.getType().getPriority(), a.getType().getPriority())
                 .compare(b.getUpdated(), a.getUpdated())
                 .result());
+    }
+
+    public State getState(){
+        if (events.size() == 0 || !config.writeActivity()) return null;
+
+        final Duration activityTimeout = Duration.ofMinutes(config.activityTimeout());
+        final Instant now = Instant.now();
+        final EventWithTime eventWithTime = events.get(0);
+
+        // if we've been in the menu for more than the timeout, stop sending updates.
+        if (GameEvent.IN_MENU.getLocation().equals(eventWithTime.getType().getLocation()) && now.isAfter(eventWithTime.getStart().plus(activityTimeout))) {
+            return null;
+        }
 
         String location = null;
         String skill = null;
@@ -104,7 +117,7 @@ public class ActivityState {
             }
         }
 
-        lastState = new State(skill, location, locationType);
+        return new State(skill, location, locationType);
     }
 
     /**
@@ -117,20 +130,17 @@ public class ActivityState {
 
         final Duration activityTimeout = Duration.ofMinutes(config.activityTimeout());
         final Instant now = Instant.now();
-        final EventWithTime eventWithTime = events.get(0);
 
         events.removeIf(event -> event.getType().isShouldTimeout() && now.isAfter(event.getUpdated().plus(activityTimeout)));
-
-        // if we've been in the menu for more than the timeout, stop sending updates.
-        if (GameEvent.IN_MENU.getLocation().equals(eventWithTime.getType().getLocation()) && now.isAfter(eventWithTime.getStart().plus(activityTimeout))) {
-            lastState = null;
-        }
     }
 
     public void write() {
-        if (!config.writeActivity() || lastState == null) return;
+        if (!config.writeActivity()) return;
 
-        Optional<Measurement> m = measurer.createActivityMeasurement(lastState);
+        State state = getState();
+        if (state == null) return;
+
+        Optional<Measurement> m = measurer.createActivityMeasurement(state);
         m.ifPresent(writer::submit);
     }
 }
