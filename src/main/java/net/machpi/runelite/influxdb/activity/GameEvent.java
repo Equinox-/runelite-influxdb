@@ -34,6 +34,7 @@ import net.runelite.api.Skill;
 import net.runelite.api.Varbits;
 
 import javax.annotation.Nullable;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
@@ -283,6 +284,7 @@ public enum GameEvent {
 
     private static final Map<Integer, GameEvent> FROM_REGION;
     private static final List<GameEvent> FROM_VARBITS;
+    private static final EnumMap<Skill, GameEvent> FROM_SKILL = new EnumMap<Skill, GameEvent>(Skill.class);
 
     static {
         ImmutableMap.Builder<Integer, GameEvent> regionMapBuilder = new ImmutableMap.Builder<>();
@@ -293,9 +295,15 @@ public enum GameEvent {
                 continue;
             }
 
+            if (gameEvent.getSkill() != null) {
+                FROM_SKILL.put(gameEvent.getSkill(), gameEvent);
+                continue;
+            }
+
             if (gameEvent.getRegionIds() == null) {
                 continue;
             }
+
 
             for (int region : gameEvent.getRegionIds()) {
                 regionMapBuilder.put(region, gameEvent);
@@ -309,7 +317,7 @@ public enum GameEvent {
     private String location;
 
     @Nullable
-    private String skill;
+    private Skill skill;
 
     private final int priority;
     private boolean shouldClear;
@@ -329,7 +337,7 @@ public enum GameEvent {
     }
 
     GameEvent(Skill skill, int priority) {
-        this.skill = skill.name();
+        this.skill = skill;
         this.priority = priority;
         this.shouldTimeout = true;
     }
@@ -357,54 +365,7 @@ public enum GameEvent {
     }
 
     public static GameEvent fromSkill(final Skill skill) {
-        switch (skill) {
-            case ATTACK:
-                return TRAINING_ATTACK;
-            case DEFENCE:
-                return TRAINING_DEFENCE;
-            case STRENGTH:
-                return TRAINING_STRENGTH;
-            case RANGED:
-                return TRAINING_RANGED;
-            case PRAYER:
-                return TRAINING_PRAYER;
-            case MAGIC:
-                return TRAINING_MAGIC;
-            case COOKING:
-                return TRAINING_COOKING;
-            case WOODCUTTING:
-                return TRAINING_WOODCUTTING;
-            case FLETCHING:
-                return TRAINING_FLETCHING;
-            case FISHING:
-                return TRAINING_FISHING;
-            case FIREMAKING:
-                return TRAINING_FIREMAKING;
-            case CRAFTING:
-                return TRAINING_CRAFTING;
-            case SMITHING:
-                return TRAINING_SMITHING;
-            case MINING:
-                return TRAINING_MINING;
-            case HERBLORE:
-                return TRAINING_HERBLORE;
-            case AGILITY:
-                return TRAINING_AGILITY;
-            case THIEVING:
-                return TRAINING_THIEVING;
-            case SLAYER:
-                return TRAINING_SLAYER;
-            case FARMING:
-                return TRAINING_FARMING;
-            case RUNECRAFT:
-                return TRAINING_RUNECRAFT;
-            case HUNTER:
-                return TRAINING_HUNTER;
-            case CONSTRUCTION:
-                return TRAINING_CONSTRUCTION;
-            default:
-                return null;
-        }
+        return FROM_SKILL.get(skill);
     }
 
     public static GameEvent fromRegion(final int regionId) {
@@ -421,4 +382,3 @@ public enum GameEvent {
         return null;
     }
 }
-// 7769 house

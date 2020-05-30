@@ -99,8 +99,8 @@ public class ActivityState {
 
         for (EventWithTime e : events) {
             // get the highest priority skill from our event list
-            if (skill == null) {
-                skill = e.getType().getSkill();
+            if (skill == null && e.getType().getSkill() != null) {
+                skill = e.getType().getSkill().name();
             }
 
             // get the highest priority or latest area from our event list
