@@ -9,6 +9,7 @@ import net.machpi.runelite.influxdb.write.InfluxWriter;
 import net.machpi.runelite.influxdb.write.Measurement;
 
 import javax.inject.Inject;
+import javax.inject.Singleton;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.EnumMap;
@@ -34,16 +35,14 @@ public class ActivityState {
 
     private final InfluxDbConfig config;
     private final MeasurementCreator measurer;
-    private final InfluxWriter writer;
 
     private final EnumMap<GameEvent, EventWithTime> latestEvents = new EnumMap<>(GameEvent.class);
     private final TreeSet<EventWithTime> events;
 
 
     @Inject
-    public ActivityState(final InfluxDbConfig config, final InfluxWriter writer, final MeasurementCreator measurer) {
+    public ActivityState(final InfluxDbConfig config, final MeasurementCreator measurer) {
         this.config = config;
-        this.writer = writer;
         this.measurer = measurer;
         this.events = new TreeSet<>((a, b) -> ComparisonChain.start()
                 .compare(b.getType().getPriority(), a.getType().getPriority())
@@ -68,12 +67,15 @@ public class ActivityState {
     public void triggerEvent(final GameEvent eventType) {
         if (!config.writeActivity()) return;
 
-        EventWithTime event = latestEvents.computeIfAbsent(eventType, et -> {
-            EventWithTime ewt = new EventWithTime(et, Instant.now());
-            events.add(ewt);
-            return ewt;
-        });
+        EventWithTime event = latestEvents.get(eventType);
+        if (event == null) {
+            event = new EventWithTime(eventType, Instant.now());
+            latestEvents.put(eventType, event);
+        } else {
+            events.remove(event);
+        }
         event.setUpdated(Instant.now());
+        events.add(event);
 
         if (event.getType().isShouldClear()) {
             events.removeIf(e -> {
@@ -85,7 +87,7 @@ public class ActivityState {
     }
 
     public State getState() {
-        if (events.size() == 0 || !config.writeActivity()) return null;
+        if (events.isEmpty() || !config.writeActivity()) return null;
 
         final Duration activityTimeout = Duration.ofMinutes(config.activityTimeout());
         final Instant now = Instant.now();
@@ -141,13 +143,13 @@ public class ActivityState {
         });
     }
 
-    public void write() {
-        if (!config.writeActivity()) return;
+    public Optional<Measurement> measure() {
+        if (!config.writeActivity()) return Optional.empty();
 
         State state = getState();
-        if (state == null) return;
+        if (state == null)
+            return Optional.empty();
 
-        Optional<Measurement> m = measurer.createActivityMeasurement(state);
-        m.ifPresent(writer::submit);
+        return measurer.createActivityMeasurement(state);
     }
 }

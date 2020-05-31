@@ -85,9 +85,9 @@ public class InfluxDbPlugin extends Plugin {
         }
 
         if (config.writeXp()) {
-            writer.submit(measurer.createXpMeasurement(statChanged.getSkill()));
+            measurer.createXpMeasurement(statChanged.getSkill()).ifPresent(writer::submit);
             if (statChanged.getSkill() != Skill.OVERALL) {
-                writer.submit(measurer.createXpMeasurement(Skill.OVERALL));
+                measurer.createXpMeasurement(Skill.OVERALL).ifPresent(writer::submit);
             }
         }
 
@@ -127,7 +127,7 @@ public class InfluxDbPlugin extends Plugin {
     private void measureInitialState() {
         if (config.writeXp()) {
             for (Skill s : Skill.values()) {
-                writer.submit(measurer.createXpMeasurement(s));
+                measurer.createXpMeasurement(s).ifPresent(writer::submit);
             }
         }
         if (config.writeKillCount()) {
@@ -269,12 +269,12 @@ public class InfluxDbPlugin extends Plugin {
     }
 
     /**
-     * send an activity heartbeat once every 30 seconds
+     * send an activity heartbeat once every 50 seconds.
      */
-    @Schedule(period = 30, unit = ChronoUnit.SECONDS)
+    @Schedule(period = 50, unit = ChronoUnit.SECONDS)
     public void updateActivity() {
         activityState.checkForTimeout();
-        activityState.write();
+        activityState.measure().ifPresent(writer::submit);
     }
 
     @Override

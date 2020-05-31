@@ -21,12 +21,14 @@ import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.game.ItemManager;
 
+import javax.inject.Singleton;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+@Singleton
 public class MeasurementCreator {
     public static final String SERIES_INVENTORY = "rs_inventory";
     public static final String SERIES_SKILL = "rs_skill";
@@ -60,8 +62,11 @@ public class MeasurementCreator {
         return createSeries().measurement(SERIES_SKILL).tag("skill", skill.name()).build();
     }
 
-    public Measurement createXpMeasurement(Skill skill) {
+    public Optional<Measurement> createXpMeasurement(Skill skill) {
         long xp = skill == Skill.OVERALL ? client.getOverallExperience() : client.getSkillExperience(skill);
+        if (xp == 0) {
+            return Optional.empty();
+        }
         int virtualLevel;
         int realLevel;
         if (skill == Skill.OVERALL) {
@@ -74,12 +79,12 @@ public class MeasurementCreator {
             virtualLevel = Experience.getLevelForXp((int) xp);
             realLevel = client.getRealSkillLevel(skill);
         }
-        return Measurement.builder()
+        return Optional.of(Measurement.builder()
                 .series(createXpSeries(skill))
                 .numericValue("xp", xp)
                 .numericValue("realLevel", realLevel)
                 .numericValue("virtualLevel", virtualLevel)
-                .build();
+                .build());
     }
 
     public Series createItemSeries(InventoryID inventory, InvValueType type) {
@@ -221,11 +226,23 @@ public class MeasurementCreator {
 
     public Optional<Measurement> createActivityMeasurement(ActivityState.State lastState) {
         Optional<Series> series = createActivitySeries(lastState);
-        return series.map(value -> Measurement.builder()
-                .series(value)
-                .stringValue("skill", lastState.getSkill())
-                .stringValue("type", lastState.getLocationType())
-                .stringValue("location", lastState.getLocation())
-                .build());
+        if (!series.isPresent()) {
+            return Optional.empty();
+        }
+        Measurement.MeasurementBuilder mb = Measurement.builder().series(series.get());
+        if (!Strings.isNullOrEmpty(lastState.getSkill())) {
+            mb.stringValue("skill", lastState.getSkill());
+        }
+        if (!Strings.isNullOrEmpty(lastState.getLocationType())) {
+            mb.stringValue("type", lastState.getLocationType());
+        }
+        if (!Strings.isNullOrEmpty(lastState.getLocation())) {
+            mb.stringValue("location", lastState.getLocation());
+        }
+        Measurement measure = mb.build();
+        if (measure.getStringValues().isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(measure);
     }
 }
