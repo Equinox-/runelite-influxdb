@@ -29,6 +29,7 @@ import net.runelite.client.util.ExecutorServiceExceptionLogger;
 
 import javax.inject.Inject;
 import java.time.temporal.ChronoUnit;
+import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
@@ -73,16 +74,15 @@ public class InfluxDbPlugin extends Plugin {
      * Don't use a shared executor because we don't want to block any game threads.
      */
     private final ScheduledExecutorService executor = new ExecutorServiceExceptionLogger(Executors.newSingleThreadScheduledExecutor());
-
-    private boolean loginFlag;
-    private int loggedInTick = Integer.MAX_VALUE;
+    private final EnumMap<Skill, Integer> previousStatXp = new EnumMap<>(Skill.class);
+    private GameState prevGameState;
 
     @Subscribe
     public void onStatChanged(StatChanged statChanged) {
-        // stat change is kicked off when logged in. only update stats when init'ing stats has finished
-        if (loggedInTick >= client.getTickCount()) {
+        int prevStatXp = previousStatXp.getOrDefault(statChanged.getSkill(), 0);
+        if (statChanged.getXp() == prevStatXp)
             return;
-        }
+        previousStatXp.put(statChanged.getSkill(), statChanged.getXp());
 
         if (config.writeXp()) {
             measurer.createXpMeasurement(statChanged.getSkill()).ifPresent(writer::submit);
@@ -101,20 +101,15 @@ public class InfluxDbPlugin extends Plugin {
 
     @Subscribe
     public void onGameStateChanged(GameStateChanged event) {
+        GameState prev = prevGameState;
+        prevGameState = event.getGameState();
+
         switch (event.getGameState()) {
             case LOGIN_SCREEN:
                 checkForGameStateUpdate();
                 return;
-            case LOGGING_IN:
-                loginFlag = true;
-                break;
             case LOGGED_IN:
-                // check the loginFlag to know if the previous state was LOGGING_IN.
-                // it is possible to go from a LOADING to LOGGED_IN state when loading
-                // region chunks.
-                if (loginFlag) {
-                    loginFlag = false;
-                    loggedInTick = client.getTickCount();
+                if (prev == GameState.LOGGING_IN) {
                     measureInitialState();
                     checkForGameStateUpdate();
                 }
