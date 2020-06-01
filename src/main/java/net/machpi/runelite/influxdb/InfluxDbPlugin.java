@@ -19,6 +19,7 @@ import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.api.events.StatChanged;
 import net.runelite.api.events.VarbitChanged;
+import net.runelite.api.widgets.WidgetInfo;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
@@ -241,13 +242,15 @@ public class InfluxDbPlugin extends Plugin {
         final EnumSet<WorldType> worldType = client.getWorldType();
         GameEvent gameEvent = GameEvent.fromRegion(regionId);
 
-        if (worldType.contains(WorldType.DEADMAN)) {
+        if (GameEvent.MG_NIGHTMARE_ZONE == gameEvent && localPlayer.getWorldLocation().getPlane() == 0) {
+            // NMZ uses the same region ID as KBD. KBD is always on plane 0 and NMZ is always above plane 0
+            gameEvent = GameEvent.BOSS_KING_BLACK_DRAGON;
+        } else if (client.getWidget(WidgetInfo.PVP_WILDERNESS_LEVEL) != null) {
+            gameEvent = GameEvent.WILDERNESS;
+        } else if (worldType.contains(WorldType.DEADMAN)) {
             gameEvent = GameEvent.PLAYING_DEADMAN;
         } else if (WorldType.isPvpWorld(worldType)) {
             gameEvent = GameEvent.PLAYING_PVP;
-        } else if (GameEvent.MG_NIGHTMARE_ZONE == gameEvent && localPlayer.getWorldLocation().getPlane() == 0) {
-            // NMZ uses the same region ID as KBD. KBD is always on plane 0 and NMZ is always above plane 0
-            gameEvent = GameEvent.BOSS_KING_BLACK_DRAGON;
         } else if (gameEvent == null) {
             gameEvent = GameEvent.IN_GAME;
         }

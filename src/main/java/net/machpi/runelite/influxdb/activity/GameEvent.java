@@ -53,8 +53,9 @@ enum LocationType {
 @Getter
 public enum GameEvent {
 
-    IN_GAME("In Game", -3),
-    IN_MENU("In Menu", -3),
+    IN_GAME("In Game", -4),
+    IN_MENU("In Menu", -4),
+    WILDERNESS("Wilderness", -2),
 
     PLAYING_DEADMAN("Playing Deadman Mode", -3),
     PLAYING_PVP("Playing in a PVP world", -3),
