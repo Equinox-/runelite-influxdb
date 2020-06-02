@@ -30,7 +30,7 @@ public interface InfluxDbConfig extends Config {
     @ConfigItem(
             keyName = "serverUsername",
             name = "Server Username",
-            description = "Username to use for authentiation",
+            description = "Username to use for authentication",
             position = 2
     )
     default String getServerUsername() {
@@ -40,8 +40,9 @@ public interface InfluxDbConfig extends Config {
     @ConfigItem(
             keyName = "serverPassword",
             name = "Server Password",
-            description = "Password to use for authentiation",
-            position = 3
+            description = "Password to use for authentication",
+            position = 3,
+            secret = true
     )
     default String getServerPassword() {
         return "";

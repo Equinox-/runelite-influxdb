@@ -80,6 +80,8 @@ public class InfluxDbPlugin extends Plugin {
 
     @Subscribe
     public void onStatChanged(StatChanged statChanged) {
+        if (statChanged.getXp() == 0 || client.getGameState() != GameState.LOGGED_IN)
+            return;
         int prevStatXp = previousStatXp.getOrDefault(statChanged.getSkill(), 0);
         if (statChanged.getXp() == prevStatXp)
             return;
