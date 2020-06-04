@@ -82,8 +82,8 @@ public class InfluxDbPlugin extends Plugin {
     public void onStatChanged(StatChanged statChanged) {
         if (statChanged.getXp() == 0 || client.getGameState() != GameState.LOGGED_IN)
             return;
-        int prevStatXp = previousStatXp.getOrDefault(statChanged.getSkill(), 0);
-        if (statChanged.getXp() == prevStatXp)
+        final Integer previous = previousStatXp.put(statChanged.getSkill(), statChanged.getXp());
+        if (previous == null || previous == statChanged.getXp())
             return;
         previousStatXp.put(statChanged.getSkill(), statChanged.getXp());
 
@@ -110,7 +110,10 @@ public class InfluxDbPlugin extends Plugin {
         switch (event.getGameState()) {
             case LOGIN_SCREEN:
                 checkForGameStateUpdate();
-                return;
+                break;
+            case LOGGING_IN:
+                previousStatXp.clear();
+                break;
             case LOGGED_IN:
                 if (prev == GameState.LOGGING_IN) {
                     measureInitialState();
