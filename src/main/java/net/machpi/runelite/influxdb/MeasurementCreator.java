@@ -97,6 +97,7 @@ public class MeasurementCreator {
     public Stream<Measurement> createItemMeasurements(InventoryID inventoryID, Item[] items) {
         Measurement.MeasurementBuilder geValue = Measurement.builder().series(createItemSeries(inventoryID, InvValueType.GE));
         Measurement.MeasurementBuilder haValue = Measurement.builder().series(createItemSeries(inventoryID, InvValueType.HA));
+        Measurement.MeasurementBuilder countValue = Measurement.builder().series(createItemSeries(inventoryID, InvValueType.COUNT));
 
         long totalGe = 0, totalAlch = 0;
         long otherGe = 0, otherAlch = 0;
@@ -127,19 +128,17 @@ public class MeasurementCreator {
             boolean highValue = ge > THRESHOLD || alch > THRESHOLD;
             if (highValue) {
                 geValue.numericValue(data.getName(), ge);
+                haValue.numericValue(data.getName(), alch);
+                countValue.numericValue(data.getName(), item.getQuantity());
             } else {
                 otherGe += ge;
-            }
-            if (highValue) {
-                haValue.numericValue(data.getName(), alch);
-            } else {
                 otherAlch += alch;
             }
         }
 
         geValue.numericValue("total", totalGe).numericValue("other", otherGe);
         haValue.numericValue("total", totalAlch).numericValue("other", otherAlch);
-        return Stream.of(geValue.build(), haValue.build());
+        return Stream.of(geValue.build(), haValue.build(), countValue.build());
     }
 
     public Series createSelfLocSeries() {
