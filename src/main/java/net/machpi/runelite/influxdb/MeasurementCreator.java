@@ -1,8 +1,10 @@
 package net.machpi.runelite.influxdb;
 
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import net.machpi.runelite.influxdb.activity.ActivityState;
 import net.machpi.runelite.influxdb.write.Measurement;
 import net.machpi.runelite.influxdb.write.Series;
 import net.runelite.api.Client;
@@ -19,17 +21,21 @@ import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.game.ItemManager;
 
+import javax.inject.Singleton;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+@Singleton
 public class MeasurementCreator {
     public static final String SERIES_INVENTORY = "rs_inventory";
     public static final String SERIES_SKILL = "rs_skill";
     public static final String SERIES_SELF = "rs_self";
     public static final String SERIES_KILL_COUNT = "rs_killcount";
     public static final String SERIES_SELF_LOC = "rs_self_loc";
+    public static final String SERIES_ACTIVITY = "rs_activity";
     public static final String SELF_KEY_X = "locX";
     public static final String SELF_KEY_Y = "locY";
     public static final Set<String> SELF_POS_KEYS = ImmutableSet.of(SELF_KEY_X, SELF_KEY_Y);
@@ -56,8 +62,11 @@ public class MeasurementCreator {
         return createSeries().measurement(SERIES_SKILL).tag("skill", skill.name()).build();
     }
 
-    public Measurement createXpMeasurement(Skill skill) {
+    public Optional<Measurement> createXpMeasurement(Skill skill) {
         long xp = skill == Skill.OVERALL ? client.getOverallExperience() : client.getSkillExperience(skill);
+        if (xp == 0) {
+            return Optional.empty();
+        }
         int virtualLevel;
         int realLevel;
         if (skill == Skill.OVERALL) {
@@ -70,12 +79,12 @@ public class MeasurementCreator {
             virtualLevel = Experience.getLevelForXp((int) xp);
             realLevel = client.getRealSkillLevel(skill);
         }
-        return Measurement.builder()
+        return Optional.of(Measurement.builder()
                 .series(createXpSeries(skill))
                 .numericValue("xp", xp)
                 .numericValue("realLevel", realLevel)
                 .numericValue("virtualLevel", virtualLevel)
-                .build();
+                .build());
     }
 
     public Series createItemSeries(InventoryID inventory, InvValueType type) {
@@ -207,4 +216,33 @@ public class MeasurementCreator {
     }
 
     private static final int THRESHOLD = 50_000;
+
+    public Optional<Series> createActivitySeries(ActivityState.State lastState) {
+        Series series = createSeries().measurement(SERIES_ACTIVITY).build();
+        if (Strings.isNullOrEmpty(series.getTags().getOrDefault("user", null)))
+            return Optional.empty();
+        return Optional.of(series);
+    }
+
+    public Optional<Measurement> createActivityMeasurement(ActivityState.State lastState) {
+        Optional<Series> series = createActivitySeries(lastState);
+        if (!series.isPresent()) {
+            return Optional.empty();
+        }
+        Measurement.MeasurementBuilder mb = Measurement.builder().series(series.get());
+        if (!Strings.isNullOrEmpty(lastState.getSkill())) {
+            mb.stringValue("skill", lastState.getSkill());
+        }
+        if (!Strings.isNullOrEmpty(lastState.getLocationType())) {
+            mb.stringValue("type", lastState.getLocationType());
+        }
+        if (!Strings.isNullOrEmpty(lastState.getLocation())) {
+            mb.stringValue("location", lastState.getLocation());
+        }
+        Measurement measure = mb.build();
+        if (measure.getStringValues().isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(measure);
+    }
 }

@@ -11,6 +11,10 @@ import org.influxdb.InfluxDBFactory;
 import org.influxdb.dto.BatchPoints;
 
 import javax.inject.Inject;
+import javax.inject.Singleton;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayDeque;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -18,6 +22,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
+@Singleton
 public class InfluxWriter {
     private final InfluxDbConfig config;
     private final ConcurrentMap<Series, Writer> writers = new ConcurrentHashMap<>();
@@ -77,6 +82,8 @@ public class InfluxWriter {
         return writers.computeIfAbsent(s, series -> {
             if (series.getMeasurement().equals(MeasurementCreator.SERIES_SELF_LOC)) {
                 return new Writer(new ThrottledWriter(), SELF_DEDUPE);
+            } else if (series.getMeasurement().equals(MeasurementCreator.SERIES_ACTIVITY)) {
+                return new Writer(new AlwaysWriter(), (a, b) -> true);
             }
             return new Writer(new ThrottledWriter(), FULL_DEDUPE);
         });
@@ -160,6 +167,32 @@ public class InfluxWriter {
             lastWritten = flush;
             if (flush != null)
                 output.point(flush.toInflux());
+        }
+    }
+
+    private static class AlwaysWriter implements TerminalOp {
+        private final ArrayDeque<Measurement> queued = new ArrayDeque<>();
+
+        @Override
+        public synchronized Measurement getLastWritten() {
+            return queued.isEmpty() ? null : queued.peekLast();
+        }
+
+        @Override
+        public boolean isBlocked() {
+            return false;
+        }
+
+        @Override
+        public synchronized void submit(Measurement m) {
+            queued.add(m);
+        }
+
+        @Override
+        public synchronized void flush(BatchPoints.Builder output) {
+            while (!queued.isEmpty()) {
+                output.point(queued.removeFirst().toInflux());
+            }
         }
     }
 
