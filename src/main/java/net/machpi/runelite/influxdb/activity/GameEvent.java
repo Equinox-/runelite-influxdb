@@ -52,13 +52,11 @@ enum LocationType {
 @AllArgsConstructor
 @Getter
 public enum GameEvent {
-
-    IN_GAME("In Game", -4),
-    IN_MENU("In Menu", -4),
-    WILDERNESS("Wilderness", -2),
-
+    IN_GAME("In Game", -3),
+    IN_MENU("In Menu", -3),
     PLAYING_DEADMAN("Playing Deadman Mode", -3),
     PLAYING_PVP("Playing in a PVP world", -3),
+    WILDERNESS("Wilderness", -2),
 
     TRAINING_ATTACK(Skill.ATTACK),
     TRAINING_DEFENCE(Skill.DEFENCE),
@@ -98,13 +96,13 @@ public enum GameEvent {
     BOSS_KRAKEN("Kraken", LocationType.BOSSES, 9116),
     BOSS_KREEARRA("Kree'arra", LocationType.BOSSES, 11346),
     BOSS_KRIL_TSUTSAROTH("K'ril Tsutsaroth", LocationType.BOSSES, 11603),
-    BOSS_NIGHTMARE("Nightmare of Ashihama", LocationType.BOSSES, 15515),
     BOSS_SKOTIZO("Skotizo", LocationType.BOSSES, 6810),
     BOSS_SMOKE_DEVIL("Thermonuclear smoke devil", LocationType.BOSSES, 9363, 9619),
     BOSS_VORKATH("Vorkath", LocationType.BOSSES, 9023),
     BOSS_WINTERTODT("Wintertodt", LocationType.BOSSES, 6462),
     BOSS_ZALCANO("Zalcano", LocationType.BOSSES, 13250),
     BOSS_ZULRAH("Zulrah", LocationType.BOSSES, 9007, 9008),
+    BOSS_NIGHTMARE("Nightmare of Ashihama", LocationType.BOSSES, 15515),
 
     // Cities
     CITY_AL_KHARID("Al Kharid", LocationType.CITIES, 13105, 13106),
@@ -120,6 +118,7 @@ public enum GameEvent {
     CITY_CANIFIS("Canifis", LocationType.CITIES, 13878),
     CITY_CATHERBY("Catherby", LocationType.CITIES, 11317, 11318, 11061),
     CITY_CORSAIR_CAVE("Corsair Cove", LocationType.CITIES, 10028, 10284),
+    CITY_DARKMEYER("Darkmeyer", LocationType.CITIES, 14388),
     CITY_DORGESH_KAAN("Dorgesh-Kaan", LocationType.CITIES, 10835, 10834),
     CITY_DRAYNOR("Draynor", LocationType.CITIES, 12338),
     CITY_EDGEVILLE("Edgeville", LocationType.CITIES, 12342),
@@ -137,7 +136,7 @@ public enum GameEvent {
     CITY_LOVAKENGJ_HOUSE("Lovakengj", LocationType.CITIES, 5692, 5948, 5691, 5947, 6203, 6202, 5690, 5946),
     CITY_LUMBRIDGE("Lumbridge", LocationType.CITIES, 12850),
     CITY_LUNAR_ISLE("Lunar Isle", LocationType.CITIES, 8253, 8252, 8509, 8508),
-    CITY_MEIYERDITCH("Meiyerditch", LocationType.CITIES, 14132, 14388, 14387, 14386, 14385),
+    CITY_MEIYERDITCH("Meiyerditch", LocationType.CITIES, 14132, 14387, 14386, 14385),
     CITY_MISCELLANIA("Miscellania", LocationType.CITIES, 10044, 10300),
     CITY_MOS_LE_HARMLESS("Mos Le'Harmless", LocationType.CITIES, 14638),
     CITY_MORTTON("Mort'ton", LocationType.CITIES, 13875),
@@ -203,7 +202,7 @@ public enum GameEvent {
     DUNGEON_GOBLIN_CAVE("Goblin Cave", LocationType.DUNGEONS, 10393),
     DUNGEON_GRAND_TREE_TUNNELS("Grand Tree Tunnels", LocationType.DUNGEONS, 9882),
     DUNGEON_HAM("H.A.M Dungeon", LocationType.DUNGEONS, 12694, 10321),
-    DUNGEON_IORWERTH("Iorwerth Dungeon", LocationType.DUNGEONS, 12738, 12993, 12994),
+    DUNGEON_IORWERTH("Iorwerth Dungeon", LocationType.DUNGEONS, 12737, 12738, 12993, 12994),
     DUNGEON_JATIZSO_MINES("Jatizso Mines", LocationType.DUNGEONS, 9631),
     DUNGEON_JIGGIG_BURIAL_TOMB("Jiggig Burial Tomb", LocationType.DUNGEONS, 9875, 9874),
     DUNGEON_JOGRE("Jogre Dungeon", LocationType.DUNGEONS, 11412),
@@ -261,6 +260,7 @@ public enum GameEvent {
     MG_GAUNTLET("Gauntlet", LocationType.MINIGAMES, 12995),
     MG_INFERNO("The Inferno", LocationType.MINIGAMES, 9043),
     MG_LAST_MAN_STANDING("Last Man Standing", LocationType.MINIGAMES, 13660, 13659, 13658, 13916, 13915, 13914),
+    MG_HALLOWED_SEPULCHRE("Hallowed Sepulchre", LocationType.MINIGAMES, 8797, 9051, 9052, 9053, 9054, 9309, 9563, 9565, 9821, 10074, 10075, 10077),
     MG_MAGE_TRAINING_ARENA("Mage Training Arena", LocationType.MINIGAMES, 13462, 13463),
     MG_NIGHTMARE_ZONE("Nightmare Zone", LocationType.MINIGAMES, 9033),
     MG_PEST_CONTROL("Pest Control", LocationType.MINIGAMES, 10536),
