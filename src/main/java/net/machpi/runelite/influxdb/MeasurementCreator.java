@@ -24,6 +24,8 @@ import net.runelite.client.game.ItemManager;
 import javax.inject.Singleton;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -94,10 +96,18 @@ public class MeasurementCreator {
                 .build();
     }
 
+    private static String itemToKey(ItemComposition composition) {
+        return composition.getName() + "@" + composition.getId();
+    }
+
+    private static void addToMap(Map<String, Long> map, String key, long value) {
+        map.compute(key, (_key, oldValue) -> (oldValue != null ? oldValue : 0) + value);
+    }
+
     public Stream<Measurement> createItemMeasurements(InventoryID inventoryID, Item[] items) {
-        Measurement.MeasurementBuilder geValue = Measurement.builder().series(createItemSeries(inventoryID, InvValueType.GE));
-        Measurement.MeasurementBuilder haValue = Measurement.builder().series(createItemSeries(inventoryID, InvValueType.HA));
-        Measurement.MeasurementBuilder countValue = Measurement.builder().series(createItemSeries(inventoryID, InvValueType.COUNT));
+        Map<String, Long> gePrice = new HashMap<>(items.length / 2);
+        Map<String, Long> haPrice = new HashMap<>(items.length / 2);
+        Map<String, Long> count = new HashMap<>(items.length / 2);
 
         long totalGe = 0, totalAlch = 0;
         long otherGe = 0, otherAlch = 0;
@@ -127,18 +137,30 @@ public class MeasurementCreator {
             totalAlch += alch;
             boolean highValue = ge > THRESHOLD || alch > THRESHOLD;
             if (highValue) {
-                geValue.numericValue(data.getName(), ge);
-                haValue.numericValue(data.getName(), alch);
-                countValue.numericValue(data.getName(), item.getQuantity());
+                String key = itemToKey(data);
+                addToMap(gePrice, key, ge);
+                addToMap(haPrice, key, alch);
+                addToMap(count, key, item.getQuantity());
             } else {
                 otherGe += ge;
                 otherAlch += alch;
             }
         }
 
-        geValue.numericValue("total", totalGe).numericValue("other", otherGe);
-        haValue.numericValue("total", totalAlch).numericValue("other", otherAlch);
-        return Stream.of(geValue.build(), haValue.build(), countValue.build());
+
+        return Stream.of(Measurement.builder().series(createItemSeries(inventoryID, InvValueType.GE))
+                        .numericValues(gePrice)
+                        .numericValue("total", totalGe)
+                        .numericValue("other", otherGe)
+                        .build(),
+                Measurement.builder().series(createItemSeries(inventoryID, InvValueType.HA))
+                        .numericValues(haPrice)
+                        .numericValue("total", totalAlch)
+                        .numericValue("other", otherAlch)
+                        .build(),
+                Measurement.builder().series(createItemSeries(inventoryID, InvValueType.COUNT))
+                        .numericValues(count)
+                        .build());
     }
 
     public Series createSelfLocSeries() {
@@ -216,7 +238,7 @@ public class MeasurementCreator {
 
     private static final int THRESHOLD = 50_000;
 
-    public Optional<Series> createActivitySeries(ActivityState.State lastState) {
+    public Optional<Series> createActivitySeries() {
         Series series = createSeries().measurement(SERIES_ACTIVITY).build();
         if (Strings.isNullOrEmpty(series.getTags().getOrDefault("user", null)))
             return Optional.empty();
@@ -224,7 +246,7 @@ public class MeasurementCreator {
     }
 
     public Optional<Measurement> createActivityMeasurement(ActivityState.State lastState) {
-        Optional<Series> series = createActivitySeries(lastState);
+        Optional<Series> series = createActivitySeries();
         if (!series.isPresent()) {
             return Optional.empty();
         }
