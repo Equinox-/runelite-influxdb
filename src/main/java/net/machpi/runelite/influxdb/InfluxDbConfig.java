@@ -119,10 +119,20 @@ public interface InfluxDbConfig extends Config {
     }
 
     @ConfigItem(
+            keyName = "writeLoot",
+            name = "Submit Loot",
+            description = "Submit loot events provided by the Loot Tracker plugin",
+            position = 11
+    )
+    default boolean writeLoot() {
+        return false;
+    }
+
+    @ConfigItem(
             keyName = WRITE_INTERVAL,
             name = "Recording interval",
             description = "Minimum interval between measurements",
-            position = 11
+            position = 12
     )
     @Units(Units.SECONDS)
     @Range(min = 5, max = 5 * 60)
@@ -134,7 +144,7 @@ public interface InfluxDbConfig extends Config {
             keyName = "activityTimeout",
             name = "Activity timeout",
             description = "Configures after how long of not updating activity will be reset (in minutes)",
-            position = 12
+            position = 13
     )
     @Units(Units.MINUTES)
     default int activityTimeout() {

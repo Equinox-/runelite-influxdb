@@ -25,6 +25,7 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.plugins.loottracker.LootReceived;
 import net.runelite.client.task.Schedule;
 import net.runelite.client.util.ExecutorServiceExceptionLogger;
 
@@ -222,6 +223,13 @@ public class InfluxDbPlugin extends Plugin {
         if (flushTask != null) {
             flushTask.cancel(false);
             flushTask = null;
+        }
+    }
+
+    @Subscribe
+    public void onLootReceived(LootReceived event) {
+        if (config.writeLoot()) {
+            measurer.createLootMeasurement(event).ifPresent(writer::submit);
         }
     }
 

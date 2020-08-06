@@ -2,7 +2,9 @@ package net.machpi.runelite.influxdb;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Strings;
+import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Multiset;
 import com.google.inject.Inject;
 import net.machpi.runelite.influxdb.activity.ActivityState;
 import net.machpi.runelite.influxdb.write.Measurement;
@@ -20,12 +22,15 @@ import net.runelite.api.VarPlayer;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.game.ItemManager;
+import net.runelite.client.game.ItemStack;
+import net.runelite.client.plugins.loottracker.LootReceived;
+import net.runelite.http.api.loottracker.LootRecordType;
 
 import javax.inject.Singleton;
-import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -38,6 +43,7 @@ public class MeasurementCreator {
     public static final String SERIES_KILL_COUNT = "rs_killcount";
     public static final String SERIES_SELF_LOC = "rs_self_loc";
     public static final String SERIES_ACTIVITY = "rs_activity";
+    public static final String SERIES_LOOT = "rs_loot";
     public static final String SELF_KEY_X = "locX";
     public static final String SELF_KEY_Y = "locY";
     public static final Set<String> SELF_POS_KEYS = ImmutableSet.of(SELF_KEY_X, SELF_KEY_Y);
@@ -265,5 +271,48 @@ public class MeasurementCreator {
             return Optional.empty();
         }
         return Optional.of(measure);
+    }
+
+    public Series createLootSeries(LootRecordType type, String source, int combatLevel) {
+        return createSeries()
+                .measurement(SERIES_LOOT)
+                .tag("type", type.name())
+                .tag("source", source)
+                .tag("combat", Integer.toString(combatLevel))
+                .build();
+    }
+
+    public Optional<Measurement> createLootMeasurement(LootReceived event) {
+        Measurement.MeasurementBuilder measurement = Measurement.builder().series(createLootSeries(event.getType(), event.getName(), event.getCombatLevel()));
+        Optional<WorldPoint> worldPoint = event.getItems().stream()
+                .filter(Objects::nonNull)
+                .map(stack -> WorldPoint.fromLocalInstance(client, stack.getLocation()))
+                .findAny();
+        if (!worldPoint.isPresent()) {
+            return Optional.empty();
+        }
+
+        WorldPoint location = worldPoint.get();
+        measurement.numericValue(SELF_KEY_X, location.getX())
+                .numericValue(SELF_KEY_Y, location.getY())
+                .numericValue("plane", location.getPlane())
+                .numericValue("killcount", 1);
+
+        Multiset<String> counts = HashMultiset.create(event.getItems().size());
+        for (ItemStack stack : event.getItems()) {
+            if (stack.getQuantity() <= 0) {
+                continue;
+            }
+            int canonId = itemManager.canonicalize(stack.getId());
+            ItemComposition data = itemManager.getItemComposition(canonId);
+            counts.add(itemToKey(data), stack.getQuantity());
+        }
+        if (counts.isEmpty()) {
+            return Optional.empty();
+        }
+        for (Multiset.Entry<String> count : counts.entrySet()) {
+            measurement.numericValue(count.getElement(), count.getCount());
+        }
+        return Optional.of(measurement.build());
     }
 }

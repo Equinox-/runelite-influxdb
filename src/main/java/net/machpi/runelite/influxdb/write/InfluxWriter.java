@@ -1,10 +1,14 @@
 package net.machpi.runelite.influxdb.write;
 
+import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Multiset;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.machpi.runelite.influxdb.InfluxDbConfig;
 import net.machpi.runelite.influxdb.MeasurementCreator;
+import net.runelite.api.coords.WorldPoint;
+import net.runelite.http.api.loottracker.LootRecord;
 import org.apache.commons.lang3.StringUtils;
 import org.influxdb.InfluxDB;
 import org.influxdb.InfluxDBFactory;
@@ -12,9 +16,10 @@ import org.influxdb.dto.BatchPoints;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -82,7 +87,8 @@ public class InfluxWriter {
         return writers.computeIfAbsent(s, series -> {
             if (series.getMeasurement().equals(MeasurementCreator.SERIES_SELF_LOC)) {
                 return new Writer(new ThrottledWriter(), SELF_DEDUPE);
-            } else if (series.getMeasurement().equals(MeasurementCreator.SERIES_ACTIVITY)) {
+            } else if (series.getMeasurement().equals(MeasurementCreator.SERIES_ACTIVITY)
+                    || series.getMeasurement().equals(MeasurementCreator.SERIES_LOOT)) {
                 return new Writer(new AlwaysWriter(), (a, b) -> true);
             }
             return new Writer(new ThrottledWriter(), FULL_DEDUPE);
