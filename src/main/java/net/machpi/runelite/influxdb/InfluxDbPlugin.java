@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.machpi.runelite.influxdb.activity.ActivityState;
 import net.machpi.runelite.influxdb.activity.GameEvent;
 import net.machpi.runelite.influxdb.write.InfluxWriter;
+import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.InventoryID;
@@ -14,6 +15,7 @@ import net.runelite.api.Player;
 import net.runelite.api.Skill;
 import net.runelite.api.WorldType;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ItemContainerChanged;
@@ -33,12 +35,11 @@ import javax.inject.Inject;
 import java.time.temporal.ChronoUnit;
 import java.util.EnumMap;
 import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 @PluginDescriptor(
         name = "InfluxDB",
@@ -81,6 +82,8 @@ public class InfluxDbPlugin extends Plugin {
 
     @Subscribe
     public void onStatChanged(StatChanged statChanged) {
+        if (measurer.isInLastManStanding())
+            return;
         if (statChanged.getXp() == 0 || client.getGameState() != GameState.LOGGED_IN)
             return;
         final Integer previous = previousStatXp.put(statChanged.getSkill(), statChanged.getXp());
@@ -127,7 +130,7 @@ public class InfluxDbPlugin extends Plugin {
     }
 
     private void measureInitialState() {
-        if (config.writeXp()) {
+        if (config.writeXp() && !measurer.isInLastManStanding()) {
             for (Skill s : Skill.values()) {
                 measurer.createXpMeasurement(s).ifPresent(writer::submit);
             }
@@ -148,9 +151,6 @@ public class InfluxDbPlugin extends Plugin {
         if (container == null)
             return;
         Item[] items = container.getItems();
-        if (items == null)
-            return;
-
         InventoryID id = null;
         for (InventoryID val : InventoryID.values()) {
             if (val.getId() == event.getContainerId()) {

@@ -7,6 +7,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
 import com.google.inject.Inject;
 import net.machpi.runelite.influxdb.activity.ActivityState;
+import net.machpi.runelite.influxdb.activity.GameEvent;
 import net.machpi.runelite.influxdb.write.Measurement;
 import net.machpi.runelite.influxdb.write.Series;
 import net.runelite.api.Client;
@@ -19,6 +20,7 @@ import net.runelite.api.ItemID;
 import net.runelite.api.Player;
 import net.runelite.api.Skill;
 import net.runelite.api.VarPlayer;
+import net.runelite.api.WorldType;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.game.ItemManager;
@@ -59,10 +61,19 @@ public class MeasurementCreator {
         this.configManager = configManager;
     }
 
+    public boolean isInLastManStanding() {
+        Player localPlayer = client.getLocalPlayer();
+        if (localPlayer == null) {
+            return false;
+        }
+        final int regionId = WorldPoint.fromLocalInstance(client, localPlayer.getLocalLocation()).getRegionID();
+        return GameEvent.MG_LAST_MAN_STANDING.equals(GameEvent.fromRegion(regionId));
+    }
+
     private Series.SeriesBuilder createSeries() {
         Series.SeriesBuilder builder = Series.builder();
         builder.tag("user", client.getUsername());
-        // better logic to determine which unique instance of this player it is (ex deadman)
+        builder.tags(WorldTags.tagsForWorld(client.getWorldType()));
         return builder;
     }
 
@@ -191,7 +202,7 @@ public class MeasurementCreator {
 
     public Measurement createSelfMeasurement() {
         Player local = client.getLocalPlayer();
-        return Measurement.builder()
+        Measurement.MeasurementBuilder builder = Measurement.builder()
                 .series(createSelfSeries())
                 .numericValue("combat", Experience.getCombatLevelPrecise(
                         client.getRealSkillLevel(Skill.ATTACK),
@@ -205,8 +216,8 @@ public class MeasurementCreator {
                 .numericValue("questPoints", client.getVar(VarPlayer.QUEST_POINTS))
                 .numericValue("skulled", local.getSkullIcon() != null ? 1 : 0)
                 .stringValue("name", MoreObjects.firstNonNull(local.getName(), "none"))
-                .stringValue("overhead", local.getOverheadIcon() != null ? local.getOverheadIcon().name() : "NONE")
-                .build();
+                .stringValue("overhead", local.getOverheadIcon() != null ? local.getOverheadIcon().name() : "NONE");
+        return builder.build();
     }
 
     public Series createKillCountSeries(String boss) {

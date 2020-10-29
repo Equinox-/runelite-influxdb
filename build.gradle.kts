@@ -13,7 +13,7 @@ repositories {
 }
 
 val runeliteLocks by configurations.creating
-val runeLiteVersion = "1.6.23"
+val runeLiteVersion = "1.6.30"
 
 dependencies {
     runeliteLocks(group = "net.runelite", name = "client", version = runeLiteVersion)

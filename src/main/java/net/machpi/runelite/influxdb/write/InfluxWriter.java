@@ -172,7 +172,7 @@ public class InfluxWriter {
             Measurement flush = waitingForWrite.getAndSet(null);
             lastWritten = flush;
             if (flush != null)
-                output.point(flush.toInflux());
+                flush.toInflux().ifPresent(output::point);
         }
     }
 
@@ -197,7 +197,7 @@ public class InfluxWriter {
         @Override
         public synchronized void flush(BatchPoints.Builder output) {
             while (!queued.isEmpty()) {
-                output.point(queued.removeFirst().toInflux());
+                queued.removeFirst().toInflux().ifPresent(output::point);
             }
         }
     }
