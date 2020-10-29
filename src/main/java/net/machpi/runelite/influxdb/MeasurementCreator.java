@@ -200,6 +200,9 @@ public class MeasurementCreator {
         return createSeries().measurement(SERIES_SELF).build();
     }
 
+    private static final int VARBIT_LEAGUE_TASKS = 10046;
+    private static final int VARP_LEAGUE_POINTS = 2614;
+
     public Measurement createSelfMeasurement() {
         Player local = client.getLocalPlayer();
         Measurement.MeasurementBuilder builder = Measurement.builder()
@@ -217,6 +220,12 @@ public class MeasurementCreator {
                 .numericValue("skulled", local.getSkullIcon() != null ? 1 : 0)
                 .stringValue("name", MoreObjects.firstNonNull(local.getName(), "none"))
                 .stringValue("overhead", local.getOverheadIcon() != null ? local.getOverheadIcon().name() : "NONE");
+        if (client.getWorldType().contains(WorldType.LEAGUE)) {
+            int tasksComplete = client.getVarbitValue(VARBIT_LEAGUE_TASKS);
+            int leaguePoints = client.getVarpValue(VARP_LEAGUE_POINTS);
+            builder.numericValue("leagueTasksComplete", tasksComplete)
+                    .numericValue("leaguePoints", leaguePoints);
+        }
         return builder.build();
     }
 
