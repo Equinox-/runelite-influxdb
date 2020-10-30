@@ -61,7 +61,8 @@ val verifyRuneliteLocks by tasks.registering {
         lockDeps.forEach { id, lockedVersion ->
             val actualVersion = runtimeDeps.get(id)
             if (actualVersion != null && lockedVersion < actualVersion)
-                throw RuntimeException("Dependency " + id + " resolved to " + actualVersion + " in runtime, but runelite uses " + lockedVersion)
+                throw RuntimeException("Dependency " + id + " resolved to " +
+                        actualVersion + " in runtime, but runelite uses " + lockedVersion)
         }
     }
 }
