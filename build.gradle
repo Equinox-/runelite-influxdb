@@ -1,31 +1,36 @@
 plugins {
-	id 'java'
+    id 'java'
 }
 
 repositories {
-	mavenLocal()
-	maven {
-		url = 'https://repo.runelite.net'
-	}
-	mavenCentral()
+    mavenLocal()
+    maven {
+        url = 'https://repo.runelite.net'
+    }
+    mavenCentral()
 }
 
 def runeLiteVersion = System.getenv("runelite.pluginhub.package.runeliteVersion") ?: "1.7.2.2"
 
 dependencies {
-	compileOnly group: 'net.runelite', name:'client', version: runeLiteVersion
+    compileOnly group: 'net.runelite', name: 'client', version: runeLiteVersion
+    compileOnly 'org.projectlombok:lombok:1.18.4'
+    annotationProcessor 'org.projectlombok:lombok:1.18.4'
 
-	compileOnly 'org.projectlombok:lombok:1.18.4'
+    // Do not increase this until Runelite proper depends on a
+    // modern version of okhttp
+    implementation("org.influxdb:influxdb-java:2.5")
 
-        // Do not increase this until Runelite proper depends on a
-        // modern version of okhttp
-        implementation("org.influxdb:influxdb-java:2.5")
+    testImplementation 'junit:junit:4.12'
+    testImplementation group: 'net.runelite', name: 'client', version: runeLiteVersion
+    testImplementation group: 'net.runelite', name: 'jshell', version: runeLiteVersion
+}
 
-	annotationProcessor 'org.projectlombok:lombok:1.18.4'
-
-	testImplementation 'junit:junit:4.12'
-	testImplementation group: 'net.runelite', name:'client', version: runeLiteVersion
-	testImplementation group: 'net.runelite', name:'jshell', version: runeLiteVersion
+// Lock all dependencies inside of the runtime classpath to be the exact same version as the compile only configuration
+// This ensures nothing gets horribly out of sync between the two configurations due to runelite not being required at
+// on the runtime classpath
+configurations.runtimeClasspath { runtime ->
+    configurations.compileOnly.resolvedConfiguration.resolvedArtifacts.each { dep -> runtime.resolutionStrategy.force dep.moduleVersion.id.toString() }
 }
 
 group = '${group_id}'
@@ -33,5 +38,5 @@ version = '${version}'
 sourceCompatibility = '1.8'
 
 tasks.withType(JavaCompile) {
-	options.encoding = 'UTF-8'
+    options.encoding = 'UTF-8'
 }
