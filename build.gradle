@@ -26,11 +26,14 @@ dependencies {
     testImplementation group: 'net.runelite', name: 'jshell', version: runeLiteVersion
 }
 
-// Lock all dependencies inside of the runtime classpath to be the exact same version as the compile only configuration
-// This ensures nothing gets horribly out of sync between the two configurations due to runelite not being required at
-// on the runtime classpath
+// Lock all dependencies inside of the runtime classpath to be the exact same version
+// as the compile only configuration.  This ensures nothing gets horribly out of sync
+// between the two configurations due to runelite not being required at on the
+// runtime classpath.
 configurations.runtimeClasspath { runtime ->
-    configurations.compileOnly.resolvedConfiguration.resolvedArtifacts.each { dep -> runtime.resolutionStrategy.force dep.moduleVersion.id.toString() }
+    configurations.compileOnly.resolvedConfiguration.resolvedArtifacts.each { dep ->
+        runtime.resolutionStrategy.force dep.moduleVersion.id.toString()
+    }
 }
 
 group = '${group_id}'
