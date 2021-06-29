@@ -34,6 +34,7 @@ import javax.inject.Inject;
 import java.time.temporal.ChronoUnit;
 import java.util.EnumMap;
 import java.util.EnumSet;
+import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -118,7 +119,6 @@ public class InfluxDbPlugin extends Plugin {
                 break;
             case LOGGED_IN:
                 if (prev == GameState.LOGGING_IN) {
-                    measureInitialState();
                     checkForGameStateUpdate();
                 }
                 break;
@@ -127,16 +127,22 @@ public class InfluxDbPlugin extends Plugin {
         checkForAreaUpdate();
     }
 
-    private void measureInitialState() {
+    private String lastMeasuredProfile;
+    private void maybeMeasureInitialState() {
+        String profile = configManager.getRSProfileKey();
+        if (profile == null || Objects.equals(profile, lastMeasuredProfile)) {
+            return;
+        }
+        lastMeasuredProfile = profile;
         if (config.writeXp() && !measurer.isInLastManStanding()) {
             for (Skill s : Skill.values()) {
                 measurer.createXpMeasurement(s).ifPresent(writer::submit);
             }
         }
         if (config.writeKillCount()) {
-            String group = MeasurementCreator.KILL_COUNT_CFG_GROUP + client.getUsername().toLowerCase() + ".";
-            for (String groupAndKey : configManager.getConfigurationKeys(group)) {
-                String boss = groupAndKey.substring(group.length());
+            String prefix = MeasurementCreator.KILL_COUNT_CFG_GROUP + "." + profile + ".";
+            for (String groupAndKey : configManager.getConfigurationKeys(prefix)) {
+                String boss = groupAndKey.substring(prefix.length());
                 measurer.createKillCountMeasurement(boss).ifPresent(writer::submit);
             }
         }
@@ -165,6 +171,7 @@ public class InfluxDbPlugin extends Plugin {
 
     @Subscribe
     public void onGameTick(GameTick tick) {
+        maybeMeasureInitialState();
         if (config.writeSelfLoc())
             writer.submit(measurer.createSelfLocMeasurement());
         if (config.writeSelfMeta())
@@ -289,10 +296,6 @@ public class InfluxDbPlugin extends Plugin {
     @Override
     protected void startUp() {
         rescheduleFlush();
-        if (client.getGameState() == GameState.LOGGED_IN) {
-            measureInitialState();
-        }
-
         checkForGameStateUpdate();
         checkForAreaUpdate();
     }

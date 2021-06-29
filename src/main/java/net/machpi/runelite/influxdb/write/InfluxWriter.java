@@ -95,13 +95,17 @@ public class InfluxWriter {
         });
     }
 
-    public void flush() {
+    public synchronized void flush() {
+        Optional<InfluxDB> influx = getInflux();
+        if (!influx.isPresent()) {
+            return;
+        }
         BatchPoints.Builder batch = BatchPoints.database(config.getDatabase())
                 .retentionPolicy(config.getServerRetentionPolicy())
                 .consistency(InfluxDB.ConsistencyLevel.ONE);
         writers.forEach((k, v) -> v.flush(batch));
 
-        getInflux().ifPresent(influxDB -> {
+        influx.ifPresent(influxDB -> {
             BatchPoints built = batch.build();
             if (!built.getPoints().isEmpty()) {
                 influxDB.write(built);

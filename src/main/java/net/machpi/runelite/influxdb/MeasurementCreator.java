@@ -243,12 +243,13 @@ public class MeasurementCreator {
         Integer killCount = configManager.getRSProfileConfiguration(KILL_COUNT_CFG_GROUP, boss, int.class);
         if (killCount == null)
             return Optional.empty();
-        Integer personalBest = configManager.getRSProfileConfiguration(PERSONAL_BEST_CFG_GROUP, boss, int.class);
+        Double personalBest = configManager.getRSProfileConfiguration(PERSONAL_BEST_CFG_GROUP, boss, double.class);
         Measurement.MeasurementBuilder measurement = Measurement.builder()
                 .series(createKillCountSeries(boss))
                 .numericValue("kc", killCount);
         if (personalBest != null) {
-            measurement.numericValue("pb", personalBest);
+            measurement.numericValue("pb", personalBest.intValue());
+            measurement.numericValue("pb_float", personalBest.floatValue());
         }
         return Optional.of(measurement.build());
     }
