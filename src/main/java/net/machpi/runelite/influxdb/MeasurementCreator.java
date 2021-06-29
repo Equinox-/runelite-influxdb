@@ -234,19 +234,16 @@ public class MeasurementCreator {
                 .tag("boss", boss).build();
     }
 
-    static final String KILL_COUNT_CFG_PREFIX = "killcount.";
-    static final String PERSONAL_BEST_CFG_PREFIX = "personalbest.";
+    static final String KILL_COUNT_CFG_GROUP = "killcount";
+    static final String PERSONAL_BEST_CFG_GROUP = "personalbest";
 
     public Optional<Measurement> createKillCountMeasurement(String bossMixed) {
         // Piggyback off of chat commands plugin
-        String user = client.getUsername().toLowerCase();
         String boss = bossMixed.toLowerCase();
-        Integer killCount = configManager.getConfiguration(KILL_COUNT_CFG_PREFIX + user,
-                boss, int.class);
+        Integer killCount = configManager.getRSProfileConfiguration(KILL_COUNT_CFG_GROUP, boss, int.class);
         if (killCount == null)
             return Optional.empty();
-        Integer personalBest = configManager.getConfiguration(PERSONAL_BEST_CFG_PREFIX + user,
-                boss, int.class);
+        Integer personalBest = configManager.getRSProfileConfiguration(PERSONAL_BEST_CFG_GROUP, boss, int.class);
         Measurement.MeasurementBuilder measurement = Measurement.builder()
                 .series(createKillCountSeries(boss))
                 .numericValue("kc", killCount);

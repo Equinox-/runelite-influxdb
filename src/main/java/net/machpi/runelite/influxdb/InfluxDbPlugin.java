@@ -19,6 +19,7 @@ import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.api.events.StatChanged;
 import net.runelite.api.events.VarbitChanged;
+import net.runelite.api.widgets.Widget;
 import net.runelite.api.widgets.WidgetInfo;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
@@ -133,7 +134,7 @@ public class InfluxDbPlugin extends Plugin {
             }
         }
         if (config.writeKillCount()) {
-            String group = MeasurementCreator.KILL_COUNT_CFG_PREFIX + client.getUsername().toLowerCase() + ".";
+            String group = MeasurementCreator.KILL_COUNT_CFG_GROUP + client.getUsername().toLowerCase() + ".";
             for (String groupAndKey : configManager.getConfigurationKeys(group)) {
                 String boss = groupAndKey.substring(group.length());
                 measurer.createKillCountMeasurement(boss).ifPresent(writer::submit);
@@ -147,7 +148,6 @@ public class InfluxDbPlugin extends Plugin {
         ItemContainer container = event.getItemContainer();
         if (container == null)
             return;
-        Item[] items = container.getItems();
         InventoryID id = null;
         for (InventoryID val : InventoryID.values()) {
             if (val.getId() == event.getContainerId()) {
@@ -159,6 +159,7 @@ public class InfluxDbPlugin extends Plugin {
             return;
         if (writer.isBlocked(measurer.createItemSeries(id, MeasurementCreator.InvValueType.HA)))
             return;
+        Item[] items = container.getItems();
         measurer.createItemMeasurements(id, items).forEach(writer::submit);
     }
 
@@ -178,17 +179,16 @@ public class InfluxDbPlugin extends Plugin {
                 rescheduleFlush();
             }
         }
-        observeKillCountConfig(changed.getGroup(), changed.getKey(), changed.getNewValue());
+        observeKillCountConfig(changed.getGroup(), changed.getKey());
     }
 
-    private void observeKillCountConfig(String group, String key, String value) {
+    private void observeKillCountConfig(String group, String key) {
         // Piggyback on the chat commands plugin to record kill count to avoid
         // duplicating the complex logic to keep up to date on kill counts
         if (!config.writeKillCount())
             return;
-        String user = client.getUsername().toLowerCase();
-        if (!group.equals(MeasurementCreator.KILL_COUNT_CFG_PREFIX + user)
-                && !group.equals(MeasurementCreator.PERSONAL_BEST_CFG_PREFIX + user))
+        if (!group.equals(MeasurementCreator.KILL_COUNT_CFG_GROUP)
+                && !group.equals(MeasurementCreator.PERSONAL_BEST_CFG_GROUP))
             return;
         measurer.createKillCountMeasurement(key).ifPresent(writer::submit);
     }
@@ -252,10 +252,11 @@ public class InfluxDbPlugin extends Plugin {
         final EnumSet<WorldType> worldType = client.getWorldType();
         GameEvent gameEvent = GameEvent.fromRegion(regionId);
 
+        Widget wildyWidget = client.getWidget(WidgetInfo.PVP_WILDERNESS_LEVEL);
         if (GameEvent.MG_NIGHTMARE_ZONE == gameEvent && localPlayer.getWorldLocation().getPlane() == 0) {
             // NMZ uses the same region ID as KBD. KBD is always on plane 0 and NMZ is always above plane 0
             gameEvent = GameEvent.BOSS_KING_BLACK_DRAGON;
-        } else if (client.getWidget(WidgetInfo.PVP_WILDERNESS_LEVEL) != null) {
+        } else if (wildyWidget != null && !wildyWidget.isHidden() && !"".equals(wildyWidget.getText())) {
             gameEvent = GameEvent.WILDERNESS;
         } else if (worldType.contains(WorldType.DEADMAN)) {
             gameEvent = GameEvent.PLAYING_DEADMAN;
