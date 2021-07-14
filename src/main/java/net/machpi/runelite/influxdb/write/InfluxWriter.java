@@ -1,14 +1,11 @@
 package net.machpi.runelite.influxdb.write;
 
-import com.google.common.collect.HashMultiset;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Multiset;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.machpi.runelite.influxdb.InfluxDbConfig;
 import net.machpi.runelite.influxdb.MeasurementCreator;
-import net.runelite.api.coords.WorldPoint;
-import net.runelite.http.api.loottracker.LootRecord;
 import org.apache.commons.lang3.StringUtils;
 import org.influxdb.InfluxDB;
 import org.influxdb.InfluxDBFactory;
@@ -17,8 +14,7 @@ import org.influxdb.dto.BatchPoints;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -90,6 +86,8 @@ public class InfluxWriter {
             } else if (series.getMeasurement().equals(MeasurementCreator.SERIES_ACTIVITY)
                     || series.getMeasurement().equals(MeasurementCreator.SERIES_LOOT)) {
                 return new Writer(new AlwaysWriter(), (a, b) -> true);
+            } else if (series.getMeasurement().equals(MeasurementCreator.SERIES_SKILLING_ITEMS)) {
+                return new Writer(new SummingWriter(false), (a, b) -> true);
             }
             return new Writer(new ThrottledWriter(), FULL_DEDUPE);
         });
@@ -203,6 +201,53 @@ public class InfluxWriter {
             while (!queued.isEmpty()) {
                 queued.removeFirst().toInflux().ifPresent(output::point);
             }
+        }
+    }
+
+    private static final class SummingWriter implements TerminalOp {
+        private final boolean floatingPoint;
+        private Series series;
+        private final Map<String, Number> values = new HashMap<>();
+
+        public SummingWriter(boolean floatingPoint) {
+            this.floatingPoint = floatingPoint;
+        }
+
+        @Override
+        public Measurement getLastWritten() {
+            return null;
+        }
+
+        @Override
+        public boolean isBlocked() {
+            return false;
+        }
+
+        @Override
+        public synchronized void submit(Measurement m) {
+            if (series == null) {
+                series = m.getSeries();
+            }
+            Preconditions.checkArgument(m.getStringValues().isEmpty(), "Summing writer doesn't support string values");
+            for (Map.Entry<String, Number> entry : m.getNumericValues().entrySet()) {
+                Number existing = values.get(entry.getKey());
+                Number output;
+                if (floatingPoint) {
+                    output = (existing != null ? existing.doubleValue() : 0) + entry.getValue().doubleValue();
+                } else {
+                    output = (existing != null ? existing.longValue() : 0) + entry.getValue().longValue();
+                }
+                values.put(entry.getKey(), output);
+            }
+        }
+
+        @Override
+        public synchronized void flush(BatchPoints.Builder output) {
+            if (values.isEmpty()) {
+                return;
+            }
+            Measurement.builder().series(series).numericValues(values).build().toInflux().ifPresent(output::point);
+            values.clear();
         }
     }
 

@@ -129,10 +129,20 @@ public interface InfluxDbConfig extends Config {
     }
 
     @ConfigItem(
+            keyName = "writeSkillingItems",
+            name = "Submit Skilling Items",
+            description = "Submit skilling xp and item pairs",
+            position = 12
+    )
+    default boolean writeSkillingItems() {
+        return false;
+    }
+
+    @ConfigItem(
             keyName = WRITE_INTERVAL,
             name = "Recording interval",
             description = "Minimum interval between measurements",
-            position = 12
+            position = 13
     )
     @Units(Units.SECONDS)
     @Range(min = 5, max = 5 * 60)
@@ -144,7 +154,7 @@ public interface InfluxDbConfig extends Config {
             keyName = "activityTimeout",
             name = "Activity timeout",
             description = "Configures after how long of not updating activity will be reset (in minutes)",
-            position = 13
+            position = 14
     )
     @Units(Units.MINUTES)
     default int activityTimeout() {

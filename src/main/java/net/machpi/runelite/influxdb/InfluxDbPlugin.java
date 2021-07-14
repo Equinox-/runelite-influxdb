@@ -72,6 +72,11 @@ public class InfluxDbPlugin extends Plugin {
     @Inject
     private ActivityState activityState;
 
+    @Inject
+    private SkillingItemTracker skillingItemTracker;
+
+
+
     /**
      * Don't use a shared executor because we don't want to block any game threads.
      */
@@ -89,6 +94,10 @@ public class InfluxDbPlugin extends Plugin {
         if (previous == null || previous == statChanged.getXp())
             return;
         previousStatXp.put(statChanged.getSkill(), statChanged.getXp());
+
+        if (config.writeSkillingItems()) {
+            skillingItemTracker.onXpGained(statChanged.getSkill(), statChanged.getXp() - previous);
+        }
 
         if (config.writeXp()) {
             measurer.createXpMeasurement(statChanged.getSkill()).ifPresent(writer::submit);
@@ -128,6 +137,7 @@ public class InfluxDbPlugin extends Plugin {
     }
 
     private String lastMeasuredProfile;
+
     private void maybeMeasureInitialState() {
         String profile = configManager.getRSProfileKey();
         if (profile == null || Objects.equals(profile, lastMeasuredProfile)) {
@@ -161,6 +171,9 @@ public class InfluxDbPlugin extends Plugin {
                 break;
             }
         }
+        if (id == InventoryID.INVENTORY && config.writeSkillingItems()) {
+            skillingItemTracker.onInventoryChanges(container);
+        }
         if (id != InventoryID.BANK && id != InventoryID.SEED_VAULT)
             return;
         if (writer.isBlocked(measurer.createItemSeries(id, MeasurementCreator.InvValueType.HA)))
@@ -172,6 +185,7 @@ public class InfluxDbPlugin extends Plugin {
     @Subscribe
     public void onGameTick(GameTick tick) {
         maybeMeasureInitialState();
+        skillingItemTracker.flushIfNeeded();
         if (config.writeSelfLoc())
             writer.submit(measurer.createSelfLocMeasurement());
         if (config.writeSelfMeta())

@@ -46,6 +46,7 @@ public class MeasurementCreator {
     public static final String SERIES_SELF_LOC = "rs_self_loc";
     public static final String SERIES_ACTIVITY = "rs_activity";
     public static final String SERIES_LOOT = "rs_loot";
+    public static final String SERIES_SKILLING_ITEMS = "rs_skilling_items";
     public static final String SELF_KEY_X = "locX";
     public static final String SELF_KEY_Y = "locY";
     public static final Set<String> SELF_POS_KEYS = ImmutableSet.of(SELF_KEY_X, SELF_KEY_Y);
@@ -332,5 +333,25 @@ public class MeasurementCreator {
             measurement.numericValue(count.getElement(), count.getCount());
         }
         return Optional.of(measurement.build());
+    }
+
+    public Series createSkillingItemSeries(Skill skill, ItemComposition item) {
+        return createSeries()
+                .measurement(SERIES_SKILLING_ITEMS)
+                .tag("skill", skill.name())
+                .tag("item", itemToKey(item))
+                .build();
+    }
+
+    public Measurement createSkillingItemMeasurement(Skill skill, int xp,
+                                                     float weightedXp,
+                                                     ItemComposition item,
+                                                     long count) {
+        return Measurement.builder().series(createSkillingItemSeries(skill, item))
+                .numericValue("xp", xp)
+                .numericValue("weightedXp", weightedXp)
+                .numericValue("itemCount", count)
+                .numericValue("actionCount", 1)
+                .build();
     }
 }
