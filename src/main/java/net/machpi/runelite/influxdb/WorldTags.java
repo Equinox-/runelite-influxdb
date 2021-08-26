@@ -1,5 +1,6 @@
 package net.machpi.runelite.influxdb;
 
+import com.google.errorprone.annotations.Var;
 import net.runelite.api.WorldType;
 
 import javax.annotation.Nonnull;
@@ -18,15 +19,15 @@ public final class WorldTags {
     public static Map<String, String> tagsForWorld(EnumSet<WorldType> worldTypeData) {
         Variant variant = null;
         League league = null;
-        if (worldTypeData.contains(WorldType.LEAGUE)) {
-            variant = Variant.LEAGUES;
-            league = League.findCurrentLeague();
-        } else if (worldTypeData.contains(WorldType.DEADMAN) || worldTypeData.contains(WorldType.DEADMAN_TOURNAMENT)) {
+        if (worldTypeData.contains(WorldType.DEADMAN)) {
             variant = Variant.DEADMAN;
-        } else if (worldTypeData.contains(WorldType.TOURNAMENT)) {
+        } else if (worldTypeData.contains(WorldType.TOURNAMENT_WORLD)) {
             variant = Variant.TOURNAMENT;
         } else if (worldTypeData.contains(WorldType.LAST_MAN_STANDING)) {
             variant = Variant.LAST_MAN_STANDING;
+        } else if (worldTypeData.contains(WorldType.SEASONAL)) {
+            league = League.findCurrentLeague();
+            variant = league != null ? Variant.LEAGUES : Variant.UNKNOWN_SEASONAL;
         }
         Map<String, String> results = new HashMap<>();
         if (variant != null)
@@ -37,8 +38,7 @@ public final class WorldTags {
     }
 
     public enum League {
-        TRAILBLAZER(Instant.parse("2020-10-28T00:00:00.00Z"), Instant.parse("2021-01-07T00:00:00.00Z")),
-        UNKNOWN(null, null);
+        TRAILBLAZER(Instant.parse("2020-10-28T00:00:00.00Z"), Instant.parse("2021-01-07T00:00:00.00Z"));
 
         private final Instant start;
         private final Instant end;
@@ -48,7 +48,6 @@ public final class WorldTags {
             this.end = end;
         }
 
-        @Nonnull
         public static League findCurrentLeague() {
             Instant now = Instant.now();
             for (League league : League.values()) {
@@ -56,7 +55,7 @@ public final class WorldTags {
                     return league;
                 }
             }
-            return UNKNOWN;
+            return null;
         }
     }
 
@@ -64,6 +63,7 @@ public final class WorldTags {
         LEAGUES,
         DEADMAN,
         TOURNAMENT,
-        LAST_MAN_STANDING
+        LAST_MAN_STANDING,
+        UNKNOWN_SEASONAL;
     }
 }

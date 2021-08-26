@@ -23,6 +23,7 @@ import net.runelite.api.VarPlayer;
 import net.runelite.api.WorldType;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.config.RuneScapeProfileType;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.ItemStack;
 import net.runelite.client.plugins.loottracker.LootReceived;
@@ -35,6 +36,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 @Singleton
@@ -75,6 +79,8 @@ public class MeasurementCreator {
         Series.SeriesBuilder builder = Series.builder();
         builder.tag("user", client.getUsername());
         builder.tags(WorldTags.tagsForWorld(client.getWorldType()));
+        builder.tag("profile", configManager.getRSProfileKey());
+        builder.tag("worldType", RuneScapeProfileType.getCurrent(client).name());
         return builder;
     }
 
@@ -221,13 +227,55 @@ public class MeasurementCreator {
                 .numericValue("skulled", local.getSkullIcon() != null ? 1 : 0)
                 .stringValue("name", MoreObjects.firstNonNull(local.getName(), "none"))
                 .stringValue("overhead", local.getOverheadIcon() != null ? local.getOverheadIcon().name() : "NONE");
-        if (client.getWorldType().contains(WorldType.LEAGUE)) {
+        if (client.getWorldType().contains(WorldType.SEASONAL) && WorldTags.League.findCurrentLeague() != null) {
             int tasksComplete = client.getVarbitValue(VARBIT_LEAGUE_TASKS);
             int leaguePoints = client.getVarpValue(VARP_LEAGUE_POINTS);
             builder.numericValue("leagueTasksComplete", tasksComplete)
                     .numericValue("leaguePoints", leaguePoints);
         }
+        loadProfileConfig("slayer", "initialAmount", Integer::parseInt)
+                .ifPresent(amount -> builder.numericValue("slayerTaskAmount", amount));
+        loadProfileConfig("slayer", "amount", Integer::parseInt)
+                .ifPresent(amount -> builder.numericValue("slayerTaskRemaining", amount));
+        loadProfileConfig("slayer", "taskName", MeasurementCreator::toTitleCase)
+                .ifPresent(taskName -> {
+                    String taskLoc = loadProfileConfig("slayer", "taskLocation", MeasurementCreator::toTitleCase)
+                            .orElse("Any Location");
+                    builder.stringValue("slayerTaskName", taskName)
+                            .stringValue("slayerTaskLoc", taskLoc);
+                });
+        loadProfileConfig("slayer", "points", Integer::parseInt)
+                .ifPresent(amount -> builder.numericValue("slayerPoints", amount));
+        loadProfileConfig("slayer", "streak", Integer::parseInt)
+                .ifPresent(streak -> builder.numericValue("slayerTaskStreak", streak));
         return builder.build();
+    }
+
+    private static final Pattern SENTENCE_CASE_PATTERN = Pattern.compile("( |^)([a-z])");
+
+    private static String toTitleCase(String str) {
+        Matcher matcher = SENTENCE_CASE_PATTERN.matcher(str);
+        if (!matcher.find()) {
+            return str;
+        }
+        StringBuffer dest = new StringBuffer(str.length());
+        do {
+            matcher.appendReplacement(dest, matcher.group(1) + matcher.group(2).toUpperCase());
+        } while (matcher.find());
+        matcher.appendTail(dest);
+        return dest.toString();
+    }
+
+    private <T> Optional<T> loadProfileConfig(String group, String key, Function<String, T> parser) {
+        String value = configManager.getRSProfileConfiguration(group, key);
+        if (Strings.isNullOrEmpty(value)) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(parser.apply(value));
+        } catch (RuntimeException err) {
+            return Optional.empty();
+        }
     }
 
     public Series createKillCountSeries(String boss) {

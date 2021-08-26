@@ -107,7 +107,9 @@ public class InfluxWriter {
             BatchPoints built = batch.build();
             if (!built.getPoints().isEmpty()) {
                 influxDB.write(built);
-                log.debug("Writing {}", built.lineProtocol());
+                if (log.isDebugEnabled()) {
+                    log.debug("Writing {}", built.lineProtocol());
+                }
             }
         });
     }

@@ -31,7 +31,7 @@ public final class SkillingItemTracker {
             ItemID.CLOCKWORK, ItemID.FEATHER);
     private static final Set<Skill> VALID_SKILLS = ImmutableSet.of(Skill.RUNECRAFT, Skill.CRAFTING, Skill.MINING,
             Skill.SMITHING, Skill.FIREMAKING, Skill.COOKING, Skill.WOODCUTTING, Skill.HERBLORE, Skill.HUNTER,
-            Skill.FLETCHING, Skill.FARMING);
+            Skill.FLETCHING, Skill.FARMING, Skill.FISHING);
 
     private final Client client;
     private final ItemManager itemManager;
