@@ -48,7 +48,7 @@ public class MeasurementCreator {
     public static final String SERIES_INVENTORY = "rs_inventory";
     public static final String SERIES_SKILL = "rs_skill";
     public static final String SERIES_SELF = "rs_self";
-    public static final String SERIES_ACHIEVEMENTS = "rs_achivements";
+    public static final String SERIES_ACHIEVEMENTS = "rs_achievements";
     public static final String SERIES_KILL_COUNT = "rs_killcount";
     public static final String SERIES_SELF_LOC = "rs_self_loc";
     public static final String SERIES_ACTIVITY = "rs_activity";
