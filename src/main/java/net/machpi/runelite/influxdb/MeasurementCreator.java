@@ -35,7 +35,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -46,6 +48,7 @@ public class MeasurementCreator {
     public static final String SERIES_INVENTORY = "rs_inventory";
     public static final String SERIES_SKILL = "rs_skill";
     public static final String SERIES_SELF = "rs_self";
+    public static final String SERIES_ACHIEVEMENTS = "rs_achivements";
     public static final String SERIES_KILL_COUNT = "rs_killcount";
     public static final String SERIES_SELF_LOC = "rs_self_loc";
     public static final String SERIES_ACTIVITY = "rs_activity";
@@ -209,6 +212,8 @@ public class MeasurementCreator {
 
     private static final int VARBIT_LEAGUE_TASKS = 10046;
     private static final int VARP_LEAGUE_POINTS = 2614;
+    private static final int VARP_COLLECTION_LOG_ACHIEVED = 2943;
+    private static final int VARP_COLLECTION_LOG_TOTAL = 2944;
 
     public Measurement createSelfMeasurement() {
         Player local = client.getLocalPlayer();
@@ -248,7 +253,63 @@ public class MeasurementCreator {
                 .ifPresent(amount -> builder.numericValue("slayerPoints", amount));
         loadProfileConfig("slayer", "streak", Integer::parseInt)
                 .ifPresent(streak -> builder.numericValue("slayerTaskStreak", streak));
+        int collectionLogAchieved = client.getVarpValue(VARP_COLLECTION_LOG_ACHIEVED);
+
+        // Don't record if these are zero -- the varbits may not be initialized
+        if (collectionLogAchieved > 0) {
+            builder.numericValue("collectionLogAchieved", collectionLogAchieved);
+        }
+        int achievementDiaryAchieved = Arrays.stream(AchievementDiary.values())
+                .mapToInt(d -> d.getTotal(client))
+                .sum();
+        if (achievementDiaryAchieved > 0) {
+            builder.numericValue("achievementDiaryAchieved", achievementDiaryAchieved);
+        }
+        int combatAchievementsAchieved = Arrays.stream(CombatAchievement.values())
+                .mapToInt(d -> d.getCompleted(client))
+                .sum();
+        if (combatAchievementsAchieved > 0) {
+            builder.numericValue("combatAchievementsAchieved", combatAchievementsAchieved);
+        }
         return builder.build();
+    }
+
+    public Series createAchievementSeries(String achievementGroup, String achievementTier) {
+        return createSeries()
+                .measurement(SERIES_ACHIEVEMENTS)
+                .tag("group", achievementGroup)
+                .tag("tier", achievementTier)
+                .build();
+    }
+
+    private Optional<Measurement> createAchievementMeasurementInternal(String group, String tier, int count, int total) {
+        if (count == 0 || total == 0) {
+            return Optional.empty();
+        }
+        Measurement.MeasurementBuilder builder = Measurement.builder()
+                .series(createAchievementSeries(group, tier))
+                .numericValue("count", count);
+        if (total > 0) {
+            builder.numericValue("total", total);
+        }
+        return Optional.of(builder.build());
+    }
+
+    public void createAchievementMeasurements(Consumer<Measurement> target) {
+        for (AchievementDiary diary : AchievementDiary.values()) {
+            createAchievementMeasurementInternal(diary.name(), "EASY", diary.getEasy(client), -1)
+                    .ifPresent(target);
+            createAchievementMeasurementInternal(diary.name(), "MEDIUM", diary.getMedium(client), -1)
+                    .ifPresent(target);
+            createAchievementMeasurementInternal(diary.name(), "HARD", diary.getHard(client), -1)
+                    .ifPresent(target);
+            createAchievementMeasurementInternal(diary.name(), "ELITE", diary.getElite(client), -1)
+                    .ifPresent(target);
+        }
+        for (CombatAchievement tier : CombatAchievement.values()) {
+            createAchievementMeasurementInternal("COMBAT", tier.name(), tier.getCompleted(client), tier.getTotal(client))
+                    .ifPresent(target);
+        }
     }
 
     private static final Pattern SENTENCE_CASE_PATTERN = Pattern.compile("( |^)([a-z])");

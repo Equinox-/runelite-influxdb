@@ -83,6 +83,7 @@ public class InfluxDbPlugin extends Plugin {
     private final ScheduledExecutorService executor = new ExecutorServiceExceptionLogger(Executors.newSingleThreadScheduledExecutor());
     private final EnumMap<Skill, Integer> previousStatXp = new EnumMap<>(Skill.class);
     private GameState prevGameState;
+    private boolean varPlayerChanged;
 
     @Subscribe
     public void onStatChanged(StatChanged statChanged) {
@@ -156,6 +157,9 @@ public class InfluxDbPlugin extends Plugin {
                 measurer.createKillCountMeasurement(boss).ifPresent(writer::submit);
             }
         }
+        if (config.writeSelfMeta()) {
+            measurer.createAchievementMeasurements(writer::submit);
+        }
     }
 
     @Subscribe
@@ -188,8 +192,15 @@ public class InfluxDbPlugin extends Plugin {
         skillingItemTracker.flushIfNeeded();
         if (config.writeSelfLoc())
             writer.submit(measurer.createSelfLocMeasurement());
-        if (config.writeSelfMeta())
+        if (config.writeSelfMeta()) {
             writer.submit(measurer.createSelfMeasurement());
+        }
+        if (varPlayerChanged) {
+            if (config.writeSelfMeta()) {
+                measurer.createAchievementMeasurements(writer::submit);
+            }
+            varPlayerChanged = false;
+        }
     }
 
     @Subscribe
@@ -253,6 +264,7 @@ public class InfluxDbPlugin extends Plugin {
 
     @Subscribe
     public void onVarbitChanged(VarbitChanged event) {
+        varPlayerChanged = true;
         final GameEvent gameEvent = GameEvent.fromVarbit(client);
         if (gameEvent != null) {
             activityState.triggerEvent(gameEvent);
