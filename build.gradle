@@ -28,10 +28,10 @@ dependencies {
 
 // Lock all dependencies inside of the runtime classpath to be the exact same version
 // as the compile only configuration.  This ensures nothing gets horribly out of sync
-// between the two configurations due to runelite not being required at on the
+// between the two configurations due to runelite not being required on the
 // runtime classpath.
 configurations.runtimeClasspath { runtime ->
-    configurations.compileOnly.resolvedConfiguration.resolvedArtifacts.each { dep ->
+    configurations.compileClasspath.resolvedConfiguration.resolvedArtifacts.each { dep ->
         runtime.resolutionStrategy.force dep.moduleVersion.id.toString()
     }
 }
