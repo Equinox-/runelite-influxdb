@@ -160,30 +160,33 @@ public class InfluxDbPlugin extends Plugin {
         if (config.writeSelfMeta()) {
             measurer.createAchievementMeasurements(writer::submit);
         }
+        checkForGameStateUpdate();
+        checkForAreaUpdate();
     }
 
     @Subscribe
     public void onItemContainerChanged(ItemContainerChanged event) {
-        if (!config.writeBankValue()) return;
         ItemContainer container = event.getItemContainer();
         if (container == null)
             return;
-        InventoryID id = null;
-        for (InventoryID val : InventoryID.values()) {
+        InventoryID2 id = null;
+        for (InventoryID2 val : InventoryID2.values()) {
             if (val.getId() == event.getContainerId()) {
                 id = val;
                 break;
             }
         }
-        if (id == InventoryID.INVENTORY && config.writeSkillingItems()) {
+        if (id == InventoryID2.INVENTORY && config.writeSkillingItems()) {
             skillingItemTracker.onInventoryChanges(container);
         }
-        if (id != InventoryID.BANK && id != InventoryID.SEED_VAULT)
-            return;
-        if (writer.isBlocked(measurer.createItemSeries(id, MeasurementCreator.InvValueType.HA)))
-            return;
-        Item[] items = container.getItems();
-        measurer.createItemMeasurements(id, items).forEach(writer::submit);
+        if (config.writeBankValue()) {
+            if (id != InventoryID2.BANK && id != InventoryID2.SEED_VAULT && id != InventoryID2.COLLECTION_LOG)
+                return;
+            if (writer.isBlocked(measurer.createItemSeries(id, MeasurementCreator.InvValueType.HA)))
+                return;
+            Item[] items = container.getItems();
+            measurer.createItemMeasurements(id, items).forEach(writer::submit);
+        }
     }
 
     @Subscribe
@@ -322,8 +325,6 @@ public class InfluxDbPlugin extends Plugin {
     @Override
     protected void startUp() {
         rescheduleFlush();
-        checkForGameStateUpdate();
-        checkForAreaUpdate();
     }
 
     @Override

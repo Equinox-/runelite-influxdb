@@ -116,7 +116,7 @@ public class MeasurementCreator {
                 .build());
     }
 
-    public Series createItemSeries(InventoryID inventory, InvValueType type) {
+    public Series createItemSeries(InventoryID2 inventory, InvValueType type) {
         return createSeries().measurement(SERIES_INVENTORY)
                 .tag("inventory", inventory.name())
                 .tag("type", type.name())
@@ -131,7 +131,7 @@ public class MeasurementCreator {
         map.compute(key, (_key, oldValue) -> (oldValue != null ? oldValue : 0) + value);
     }
 
-    public Stream<Measurement> createItemMeasurements(InventoryID inventoryID, Item[] items) {
+    public Stream<Measurement> createItemMeasurements(InventoryID2 inventoryID, Item[] items) {
         Map<String, Long> gePrice = new HashMap<>(items.length / 2);
         Map<String, Long> haPrice = new HashMap<>(items.length / 2);
         Map<String, Long> count = new HashMap<>(items.length / 2);

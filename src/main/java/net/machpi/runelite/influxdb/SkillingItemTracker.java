@@ -6,7 +6,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Multiset;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
-import com.jogamp.common.util.IntLongHashMap;
 import lombok.extern.slf4j.Slf4j;
 import net.machpi.runelite.influxdb.write.InfluxWriter;
 import net.runelite.api.Client;
@@ -38,11 +37,11 @@ public final class SkillingItemTracker {
     private final MeasurementCreator measurementCreator;
     private final InfluxWriter writer;
 
-    private IntLongHashMap prevInventoryItems = new IntLongHashMap();
-    private IntLongHashMap currInventoryItems = new IntLongHashMap();
+    private Multiset<Integer> prevInventoryItems = HashMultiset.create();
+    private Multiset<Integer> currInventoryItems = HashMultiset.create();
 
     private int trackingDataForTick = -1;
-    private final IntLongHashMap currTickAddedItems = new IntLongHashMap();
+    private final Multiset<Integer> currTickAddedItems = HashMultiset.create();
     private final Multiset<Skill> currTickXp = HashMultiset.create();
 
     @Inject
@@ -52,9 +51,6 @@ public final class SkillingItemTracker {
         this.itemManager = itemManager;
         this.measurementCreator = measurementCreator;
         this.writer = writer;
-        this.prevInventoryItems.setKeyNotFoundValue(0);
-        this.currInventoryItems.setKeyNotFoundValue(0);
-        this.currTickAddedItems.setKeyNotFoundValue(0);
     }
 
     public void onInventoryChanges(ItemContainer container) {
@@ -67,19 +63,19 @@ public final class SkillingItemTracker {
             if (IGNORED_ITEMS.contains(id)) {
                 continue;
             }
-            currInventoryItems.put(id, currInventoryItems.get(id) + curr.getQuantity());
+            currInventoryItems.add(id, curr.getQuantity());
         }
 
         // Figure out what was added:
-        for (IntLongHashMap.Entry curr : currInventoryItems) {
-            long prevCount = prevInventoryItems.get(curr.key);
-            long newItems = curr.value - prevCount;
+        for (Multiset.Entry<Integer> curr : currInventoryItems.entrySet()) {
+            int prevCount = prevInventoryItems.count(curr.getElement());
+            int newItems = curr.getCount() - prevCount;
             if (newItems > 0) {
-                onItemAdded(curr.key, newItems);
+                onItemAdded(curr.getElement(), newItems);
             }
         }
 
-        IntLongHashMap tmp = prevInventoryItems;
+        Multiset<Integer> tmp = prevInventoryItems;
         prevInventoryItems = currInventoryItems;
         currInventoryItems = tmp;
         tmp.clear();
@@ -92,9 +88,9 @@ public final class SkillingItemTracker {
         }
     }
 
-    private void onItemAdded(int id, long count) {
+    private void onItemAdded(int id, int count) {
         flushIfNeeded();
-        currTickAddedItems.put(id, currTickAddedItems.get(id) + count);
+        currTickAddedItems.add(id, count);
     }
 
     public void flushIfNeeded() {
@@ -105,10 +101,10 @@ public final class SkillingItemTracker {
         if (currTickXp.entrySet().size() == 1) {
             Multiset.Entry<Skill> skill = Iterables.getOnlyElement(currTickXp.entrySet());
             float weightedXp = skill.getCount() / (float) currTickAddedItems.size();
-            for (IntLongHashMap.Entry item : currTickAddedItems) {
-                ItemComposition composition = itemManager.getItemComposition(item.key);
+            for (Multiset.Entry<Integer> item : currTickAddedItems.entrySet()) {
+                ItemComposition composition = itemManager.getItemComposition(item.getElement());
                 writer.submit(measurementCreator.createSkillingItemMeasurement(
-                        skill.getElement(), skill.getCount(), weightedXp, composition, item.value));
+                        skill.getElement(), skill.getCount(), weightedXp, composition, item.getCount()));
             }
         }
         currTickAddedItems.clear();

@@ -275,8 +275,8 @@ public enum GameEvent {
     MG_VOLCANIC_MINE("Volcanic Mine", LocationType.MINIGAMES, 15263, 15262),
 
     // Raids
-    RAIDS_CHAMBERS_OF_XERIC("Chambers of Xeric", LocationType.RAIDS, Varbits.IN_RAID),
-    RAIDS_THEATRE_OF_BLOOD("Theatre of Blood", LocationType.RAIDS, Varbits.THEATRE_OF_BLOOD),
+    RAIDS_CHAMBERS_OF_XERIC("Chambers of Xeric", LocationType.RAIDS, true, Varbits.IN_RAID),
+    RAIDS_THEATRE_OF_BLOOD("Theatre of Blood", LocationType.RAIDS, true, Varbits.THEATRE_OF_BLOOD),
 
     POI_FISHING_GUILD("Fishing Guild", LocationType.POI, 10293),
     POI_OTTOS_GROTTO("Otto's Grotto", LocationType.POI, 10038),
@@ -291,7 +291,7 @@ public enum GameEvent {
         ImmutableMap.Builder<Integer, GameEvent> regionMapBuilder = new ImmutableMap.Builder<>();
         ImmutableList.Builder<GameEvent> fromVarbitsBuilder = ImmutableList.builder();
         for (GameEvent gameEvent : GameEvent.values()) {
-            if (gameEvent.getVarbits() != null) {
+            if (gameEvent.getVarbit() != null) {
                 fromVarbitsBuilder.add(gameEvent);
                 continue;
             }
@@ -328,7 +328,7 @@ public enum GameEvent {
     private LocationType locationType;
 
     @Nullable
-    private Varbits varbits;
+    private Integer varbit;
 
     @Nullable
     private int[] regionIds;
@@ -357,11 +357,11 @@ public enum GameEvent {
         this.shouldClear = true;
     }
 
-    GameEvent(String areaName, LocationType locationType, Varbits varbits) {
+    GameEvent(String areaName, LocationType locationType, boolean usingVarbits, int varbit) {
         this.location = areaName;
         this.priority = -2;
         this.locationType = locationType;
-        this.varbits = varbits;
+        this.varbit = varbit;
         this.shouldClear = true;
     }
 
@@ -375,7 +375,7 @@ public enum GameEvent {
 
     public static GameEvent fromVarbit(final Client client) {
         for (GameEvent fromVarbit : FROM_VARBITS) {
-            if (client.getVar(fromVarbit.getVarbits()) != 0) {
+            if (client.getVarbitValue(fromVarbit.getVarbit()) != 0) {
                 return fromVarbit;
             }
         }
