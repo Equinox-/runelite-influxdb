@@ -237,7 +237,7 @@ public class MeasurementCreator {
                         client.getRealSkillLevel(Skill.RANGED),
                         client.getRealSkillLevel(Skill.PRAYER)
                 ))
-                .numericValue("questPoints", client.getVar(VarPlayer.QUEST_POINTS))
+                .numericValue("questPoints", client.getVarpValue(VarPlayer.QUEST_POINTS))
                 .numericValue("skulled", local.getSkullIcon() != null ? 1 : 0)
                 .stringValue("name", MoreObjects.firstNonNull(local.getName(), "none"))
                 .stringValue("overhead", local.getOverheadIcon() != null ? local.getOverheadIcon().name() : "NONE");
@@ -328,7 +328,7 @@ public class MeasurementCreator {
         if (!matcher.find()) {
             return str;
         }
-        StringBuffer dest = new StringBuffer(str.length());
+        StringBuilder dest = new StringBuilder(str.length());
         do {
             matcher.appendReplacement(dest, matcher.group(1) + matcher.group(2).toUpperCase());
         } while (matcher.find());
@@ -373,7 +373,7 @@ public class MeasurementCreator {
         return Optional.of(measurement.build());
     }
 
-    enum InvValueType {
+    public enum InvValueType {
         GE,
         HA,
         COUNT
