@@ -1,6 +1,7 @@
 package net.machpi.runelite.influxdb.write;
 
 import lombok.Builder;
+import lombok.NonNull;
 import lombok.Singular;
 import lombok.Value;
 
@@ -12,5 +13,5 @@ public class Series {
     String measurement;
 
     @Singular
-    Map<String, String> tags;
+    Map<@NonNull String, @NonNull String> tags;
 }

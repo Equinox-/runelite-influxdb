@@ -80,7 +80,16 @@ public class MeasurementCreator {
 
     private Series.SeriesBuilder createSeries() {
         Series.SeriesBuilder builder = Series.builder();
-        builder.tag("user", client.getUsername());
+        builder.tag("account", Long.toString(client.getAccountHash()));
+        Player player = client.getLocalPlayer();
+        String playerName = player != null ? player.getName() : null;
+        if (!Strings.isNullOrEmpty(playerName)) {
+            builder.tag("player", playerName);
+        }
+        String userName = client.getUsername();
+        if (!Strings.isNullOrEmpty(userName)) {
+            builder.tag("user", userName);
+        }
         builder.tags(WorldTags.tagsForWorld(client.getWorldType()));
         builder.tag("profile", configManager.getRSProfileKey());
         builder.tag("worldType", RuneScapeProfileType.getCurrent(client).name());

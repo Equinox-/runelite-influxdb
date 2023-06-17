@@ -1,6 +1,7 @@
 package net.machpi.runelite.influxdb.write;
 
 import lombok.Builder;
+import lombok.NonNull;
 import lombok.Singular;
 import lombok.Value;
 import org.influxdb.dto.Point;
@@ -18,10 +19,10 @@ public class Measurement {
     long time = System.currentTimeMillis();
 
     @Singular
-    Map<String, String> stringValues;
+    Map<@NonNull String, @NonNull String> stringValues;
 
     @Singular
-    Map<String, Number> numericValues;
+    Map<@NonNull String, @NonNull Number> numericValues;
 
     // influx accepts Map<String, Object>, where object is String | Number
     @SuppressWarnings("unchecked")
