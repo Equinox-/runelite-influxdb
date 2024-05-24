@@ -5,14 +5,13 @@ import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import net.machpi.runelite.influxdb.InfluxDbConfig;
 import net.machpi.runelite.influxdb.MeasurementCreator;
-import net.machpi.runelite.influxdb.write.InfluxWriter;
 import net.machpi.runelite.influxdb.write.Measurement;
 
 import javax.inject.Inject;
-import javax.inject.Singleton;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.EnumMap;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeSet;
 
@@ -94,7 +93,7 @@ public class ActivityState {
         final EventWithTime eventWithTime = events.first();
 
         // if we've been in the menu for more than the timeout, stop sending updates.
-        if (GameEvent.IN_MENU.getLocation().equals(eventWithTime.getType().getLocation()) && now.isAfter(eventWithTime.getStart().plus(activityTimeout))) {
+        if (Objects.equals(GameEvent.IN_MENU.getLocation(), eventWithTime.getType().getLocation()) && now.isAfter(eventWithTime.getStart().plus(activityTimeout))) {
             return null;
         }
 

@@ -81,13 +81,14 @@ public class InfluxWriter {
 
     private Writer writer(Series s) {
         return writers.computeIfAbsent(s, series -> {
-            if (series.getMeasurement().equals(MeasurementCreator.SERIES_SELF_LOC)) {
-                return new Writer(new ThrottledWriter(), SELF_DEDUPE);
-            } else if (series.getMeasurement().equals(MeasurementCreator.SERIES_ACTIVITY)
-                    || series.getMeasurement().equals(MeasurementCreator.SERIES_LOOT)) {
-                return new Writer(new AlwaysWriter(), (a, b) -> true);
-            } else if (series.getMeasurement().equals(MeasurementCreator.SERIES_SKILLING_ITEMS)) {
-                return new Writer(new SummingWriter(false), (a, b) -> true);
+            switch (series.getMeasurement()) {
+                case MeasurementCreator.SERIES_SELF_LOC:
+                    return new Writer(new ThrottledWriter(), SELF_DEDUPE);
+                case MeasurementCreator.SERIES_ACTIVITY:
+                case MeasurementCreator.SERIES_LOOT:
+                    return new Writer(new AlwaysWriter(), (a, b) -> true);
+                case MeasurementCreator.SERIES_SKILLING_ITEMS:
+                    return new Writer(new SummingWriter(false), (a, b) -> true);
             }
             return new Writer(new ThrottledWriter(), FULL_DEDUPE);
         });
@@ -95,7 +96,7 @@ public class InfluxWriter {
 
     public synchronized void flush() {
         Optional<InfluxDB> influx = getInflux();
-        if (!influx.isPresent()) {
+        if (influx.isEmpty()) {
             return;
         }
         BatchPoints.Builder batch = BatchPoints.database(config.getDatabase())

@@ -1,9 +1,7 @@
 package net.machpi.runelite.influxdb;
 
-import com.google.errorprone.annotations.Var;
 import net.runelite.api.WorldType;
 
-import javax.annotation.Nonnull;
 import java.time.Instant;
 import java.util.EnumSet;
 import java.util.HashMap;

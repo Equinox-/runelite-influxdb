@@ -13,7 +13,6 @@ import net.machpi.runelite.influxdb.write.Series;
 import net.runelite.api.Client;
 import net.runelite.api.Constants;
 import net.runelite.api.Experience;
-import net.runelite.api.InventoryID;
 import net.runelite.api.Item;
 import net.runelite.api.ItemComposition;
 import net.runelite.api.ItemID;
@@ -35,7 +34,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -96,29 +94,36 @@ public class MeasurementCreator {
         return builder;
     }
 
-    public Series createXpSeries(Skill skill) {
-        return createSeries().measurement(SERIES_SKILL).tag("skill", skill.name()).build();
+    public Series createXpSeries(String skill) {
+        return createSeries().measurement(SERIES_SKILL).tag("skill", skill).build();
     }
 
-    public Optional<Measurement> createXpMeasurement(Skill skill) {
-        long xp = skill == Skill.OVERALL ? client.getOverallExperience() : client.getSkillExperience(skill);
+    public Optional<Measurement> createOverallXpMeasurement() {
+        long xp = client.getOverallExperience();
         if (xp == 0) {
             return Optional.empty();
         }
-        int virtualLevel;
-        int realLevel;
-        if (skill == Skill.OVERALL) {
-            virtualLevel = Arrays.stream(Skill.values())
-                    .filter(x -> x != Skill.OVERALL)
-                    .mapToInt(x -> Experience.getLevelForXp(client.getSkillExperience(x)))
-                    .sum();
-            realLevel = client.getTotalLevel();
-        } else {
-            virtualLevel = Experience.getLevelForXp((int) xp);
-            realLevel = client.getRealSkillLevel(skill);
-        }
+        int virtualLevel = Arrays.stream(Skill.values())
+                .mapToInt(x -> Experience.getLevelForXp(client.getSkillExperience(x)))
+                .sum();
+        int realLevel = client.getTotalLevel();
         return Optional.of(Measurement.builder()
-                .series(createXpSeries(skill))
+                .series(createXpSeries("OVERALL"))
+                .numericValue("xp", xp)
+                .numericValue("realLevel", realLevel)
+                .numericValue("virtualLevel", virtualLevel)
+                .build());
+    }
+
+    public Optional<Measurement> createXpMeasurement(Skill skill) {
+        long xp = client.getSkillExperience(skill);
+        if (xp == 0) {
+            return Optional.empty();
+        }
+        int virtualLevel = Experience.getLevelForXp((int) xp);
+        int realLevel = client.getRealSkillLevel(skill);
+        return Optional.of(Measurement.builder()
+                .series(createXpSeries(skill.name()))
                 .numericValue("xp", xp)
                 .numericValue("realLevel", realLevel)
                 .numericValue("virtualLevel", virtualLevel)
@@ -381,19 +386,12 @@ public class MeasurementCreator {
 
     private static final int THRESHOLD = 50_000;
 
-    public Optional<Series> createActivitySeries() {
-        Series series = createSeries().measurement(SERIES_ACTIVITY).build();
-        if (Strings.isNullOrEmpty(series.getTags().getOrDefault("user", null)))
-            return Optional.empty();
-        return Optional.of(series);
+    public Series createActivitySeries() {
+        return createSeries().measurement(SERIES_ACTIVITY).build();
     }
 
     public Optional<Measurement> createActivityMeasurement(ActivityState.State lastState) {
-        Optional<Series> series = createActivitySeries();
-        if (!series.isPresent()) {
-            return Optional.empty();
-        }
-        Measurement.MeasurementBuilder mb = Measurement.builder().series(series.get());
+        Measurement.MeasurementBuilder mb = Measurement.builder().series(createActivitySeries());
         if (!Strings.isNullOrEmpty(lastState.getSkill())) {
             mb.stringValue("skill", lastState.getSkill());
         }
@@ -420,17 +418,10 @@ public class MeasurementCreator {
     }
 
     public Optional<Measurement> createLootMeasurement(LootReceived event) {
-        Measurement.MeasurementBuilder measurement = Measurement.builder().series(createLootSeries(event.getType(), event.getName(), event.getCombatLevel()));
-        Optional<WorldPoint> worldPoint = event.getItems().stream()
-                .filter(Objects::nonNull)
-                .map(stack -> WorldPoint.fromLocalInstance(client, stack.getLocation()))
-                .findAny();
-        if (!worldPoint.isPresent()) {
-            return Optional.empty();
-        }
-
-        WorldPoint location = worldPoint.get();
-        measurement.numericValue(SELF_KEY_X, location.getX())
+        Player local = client.getLocalPlayer();
+        WorldPoint location = WorldPoint.fromLocalInstance(client, local.getLocalLocation());
+        Measurement.MeasurementBuilder measurement = Measurement.builder().series(createLootSeries(event.getType(), event.getName(), event.getCombatLevel()))
+                .numericValue(SELF_KEY_X, location.getX())
                 .numericValue(SELF_KEY_Y, location.getY())
                 .numericValue("plane", location.getPlane())
                 .numericValue("killcount", 1);

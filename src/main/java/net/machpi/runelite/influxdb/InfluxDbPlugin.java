@@ -5,22 +5,11 @@ import lombok.extern.slf4j.Slf4j;
 import net.machpi.runelite.influxdb.activity.ActivityState;
 import net.machpi.runelite.influxdb.activity.GameEvent;
 import net.machpi.runelite.influxdb.write.InfluxWriter;
-import net.runelite.api.Client;
-import net.runelite.api.GameState;
-import net.runelite.api.InventoryID;
-import net.runelite.api.Item;
-import net.runelite.api.ItemContainer;
-import net.runelite.api.Player;
-import net.runelite.api.Skill;
-import net.runelite.api.WorldType;
+import net.runelite.api.*;
 import net.runelite.api.coords.WorldPoint;
-import net.runelite.api.events.GameStateChanged;
-import net.runelite.api.events.GameTick;
-import net.runelite.api.events.ItemContainerChanged;
-import net.runelite.api.events.StatChanged;
-import net.runelite.api.events.VarbitChanged;
+import net.runelite.api.events.*;
+import net.runelite.api.widgets.ComponentID;
 import net.runelite.api.widgets.Widget;
-import net.runelite.api.widgets.WidgetInfo;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
@@ -102,9 +91,7 @@ public class InfluxDbPlugin extends Plugin {
 
         if (config.writeXp()) {
             measurer.createXpMeasurement(statChanged.getSkill()).ifPresent(writer::submit);
-            if (statChanged.getSkill() != Skill.OVERALL) {
-                measurer.createXpMeasurement(Skill.OVERALL).ifPresent(writer::submit);
-            }
+            measurer.createOverallXpMeasurement().ifPresent(writer::submit);
         }
 
         if (config.writeActivity()) {
@@ -149,6 +136,7 @@ public class InfluxDbPlugin extends Plugin {
             for (Skill s : Skill.values()) {
                 measurer.createXpMeasurement(s).ifPresent(writer::submit);
             }
+            measurer.createOverallXpMeasurement().ifPresent(writer::submit);
         }
         if (config.writeKillCount()) {
             String prefix = MeasurementCreator.KILL_COUNT_CFG_GROUP + "." + profile + ".";
@@ -288,7 +276,7 @@ public class InfluxDbPlugin extends Plugin {
         final EnumSet<WorldType> worldType = client.getWorldType();
         GameEvent gameEvent = GameEvent.fromRegion(regionId);
 
-        Widget wildyWidget = client.getWidget(WidgetInfo.PVP_WILDERNESS_LEVEL);
+        Widget wildyWidget = client.getWidget(ComponentID.PVP_WILDERNESS_LEVEL);
         if (GameEvent.MG_NIGHTMARE_ZONE == gameEvent && localPlayer.getWorldLocation().getPlane() == 0) {
             // NMZ uses the same region ID as KBD. KBD is always on plane 0 and NMZ is always above plane 0
             gameEvent = GameEvent.BOSS_KING_BLACK_DRAGON;

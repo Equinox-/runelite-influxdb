@@ -10,16 +10,17 @@ repositories {
     mavenCentral()
 }
 
-def runeLiteVersion = System.getenv("runelite.pluginhub.package.runeliteVersion") ?: "1.10.5"
+def runeLiteVersion = 'latest.release'
 
 dependencies {
     compileOnly group: 'net.runelite', name: 'client', version: runeLiteVersion
-    compileOnly 'org.projectlombok:lombok:1.18.20'
-    annotationProcessor 'org.projectlombok:lombok:1.18.20'
+    compileOnly 'org.projectlombok:lombok:1.18.30'
+    annotationProcessor 'org.projectlombok:lombok:1.18.30'
 
     // Do not increase this until Runelite proper depends on a
-    // modern version of okhttp
-    implementation("org.influxdb:influxdb-java:2.5")
+    // modern version of okhttp.
+    // influxdb-java bumps to okhttp 4.x in https://github.com/influxdata/influxdb-java/pull/644
+    implementation("org.influxdb:influxdb-java:2.17")
 
     testImplementation 'junit:junit:4.13.1'
     testImplementation group: 'net.runelite', name: 'client', version: runeLiteVersion
