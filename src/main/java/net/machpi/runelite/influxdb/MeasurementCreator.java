@@ -243,7 +243,7 @@ public class MeasurementCreator {
                         client.getRealSkillLevel(Skill.PRAYER)
                 ))
                 .numericValue("questPoints", client.getVarpValue(VarPlayer.QUEST_POINTS))
-                .numericValue("skulled", local.getSkullIcon() != null ? 1 : 0)
+                .numericValue("skulled", local.getSkullIcon() != -1 ? 1 : 0)
                 .stringValue("name", MoreObjects.firstNonNull(local.getName(), "none"))
                 .stringValue("overhead", local.getOverheadIcon() != null ? local.getOverheadIcon().name() : "NONE");
         if (client.getWorldType().contains(WorldType.SEASONAL) && WorldTags.League.findCurrentLeague() != null) {
